@@ -5,51 +5,157 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Ironwood Range — a playable top-down tank battlefield map prototype."
+      content="Ironclad: a top-down pixel tank campaign with missions, tank bay, and upgrades."
     />
-    <title>Ironwood Range | Battlefield Map</title>
+    <title>Ironclad // Ricochet</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="game-shell" aria-label="Ironwood Range battlefield map">
-      <canvas id="game" aria-label="Playable top-down tank battlefield"></canvas>
+    <main id="app" class="game-shell" aria-label="Ironclad tank campaign">
+      <canvas id="game" aria-label="Top-down tank battlefield"></canvas>
 
-      <section class="top-bar" aria-label="Battlefield status">
-        <div class="brand-lockup">
-          <span class="brand-kicker">FIELD MAP // 07</span>
-          <h1>IRONWOOD <strong>RANGE</strong></h1>
+      <section id="hud" class="hud is-hidden" aria-label="Mission status">
+        <div class="hud__top">
+          <div class="mission-readout">
+            <span id="hud-sector" class="hud__eyebrow">SECTOR W-3</span>
+            <strong id="hud-mission">OPERATION // IRONWOOD RANGE</strong>
+            <span id="hud-objective">ELIMINATE HOSTILES</span>
+          </div>
+          <div class="hud__right">
+            <div class="coin-readout" title="Credits">
+              <span class="coin-readout__icon">◆</span>
+              <strong id="hud-coins">0</strong>
+            </div>
+            <button id="pause-button" class="icon-button" type="button" aria-label="Return to command menu">Ⅱ</button>
+          </div>
         </div>
-        <div class="status-chip">
-          <span class="status-dot" aria-hidden="true"></span>
-          <span>TRAINING GROUND SECURE</span>
+
+        <div class="hud__bottom">
+          <section class="health-module" aria-label="Tank armor">
+            <div class="health-module__labels"><span id="hud-tank-name">PANTHER</span><span id="hud-health-text">100 / 100</span></div>
+            <div class="meter meter--health"><i id="hud-health-fill"></i></div>
+            <div class="armor-pips" id="hud-armor-pips" aria-label="Armor level"></div>
+          </section>
+
+          <section class="wave-module" aria-label="Mission wave">
+            <span class="hud__eyebrow">HOSTILE CONTACT</span>
+            <strong id="hud-wave">WAVE 1 / 3</strong>
+            <span id="hud-enemies">0 HOSTILES REMAIN</span>
+          </section>
+
+          <section class="map-card" aria-label="Map overview">
+            <div class="map-card__topline"><span>TACTICAL OVERVIEW</span><span id="sector-label">SECTOR W-3</span></div>
+            <canvas id="minimap" width="220" height="148" aria-label="Battlefield overview"></canvas>
+          </section>
         </div>
       </section>
 
-      <aside class="control-card" aria-label="Controls">
-        <div class="control-card__heading">
-          <span class="control-card__icon" aria-hidden="true">⌁</span>
-          <span>DRIVER TEST</span>
-        </div>
-        <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> to drive</p>
-        <p class="control-card__subtle">Move the cursor to aim the turret. No weapons equipped.</p>
-      </aside>
+      <section id="combat-help" class="combat-help is-hidden" aria-label="Combat controls">
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> DRIVE</div>
+        <div><kbd>CLICK</kbd> or <kbd>SPACE</kbd> FIRE</div>
+        <div class="combat-help__dim">MOUSE AIMS TURRET</div>
+      </section>
 
-      <aside class="map-card" aria-label="Map legend">
-        <div class="map-card__topline">
-          <span>RANGE OVERVIEW</span>
-          <span id="sector-label">SECTOR W-3</span>
-        </div>
-        <canvas id="minimap" width="220" height="148" aria-label="Battlefield overview"></canvas>
-        <div class="map-card__legend">
-          <span><i class="legend-dot legend-dot--player"></i>YOUR TANK</span>
-          <span><i class="legend-dot legend-dot--spawn"></i>FUTURE SPAWN</span>
-        </div>
-      </aside>
+      <div id="toast" class="toast is-hidden" role="status" aria-live="polite"></div>
 
-      <div id="toast" class="toast" role="status" aria-live="polite">
-        <span class="toast__badge">✓</span>
-        <span>Battlefield loaded — all hard cover is collision-ready.</span>
-      </div>
+      <section id="menu-layer" class="menu-layer" aria-live="polite">
+        <div class="menu-noise" aria-hidden="true"></div>
+
+        <section id="main-menu" class="screen screen--main" data-screen="main">
+          <div class="title-lockup">
+            <span class="title-lockup__kicker">ARMORED TACTICS // CAMPAIGN BUILD</span>
+            <h1>IRONCLAD<br /><strong>RICOCHET</strong></h1>
+            <p>Take command of the range. Clear missions, earn credits, field new armor, and tune every shot.</p>
+          </div>
+
+          <div class="command-stack">
+            <button class="command-button command-button--primary" data-open-screen="missions" type="button">
+              <span class="command-button__key">01</span><span>PLAY MISSIONS</span><b>→</b>
+            </button>
+            <button class="command-button" data-open-screen="hangar" type="button">
+              <span class="command-button__key">02</span><span>TANK BAY</span><b>↗</b>
+            </button>
+            <button class="command-button" data-open-screen="upgrades" type="button">
+              <span class="command-button__key">03</span><span>UPGRADE LAB</span><b>↗</b>
+            </button>
+            <button class="command-button" data-open-screen="settings" type="button">
+              <span class="command-button__key">04</span><span>SETTINGS</span><b>⚙</b>
+            </button>
+          </div>
+
+          <div class="profile-strip">
+            <div><span>CREDITS</span><strong><i>◆</i> <b data-credits>0</b></strong></div>
+            <div><span>EQUIPPED</span><strong data-equipped-name>PANTHER</strong></div>
+            <div><span>CAMPAIGN</span><strong id="campaign-progress">01 / 03</strong></div>
+          </div>
+        </section>
+
+        <section id="missions-menu" class="screen is-hidden" data-screen="missions" aria-label="Mission select">
+          <header class="screen-header">
+            <button class="back-button" data-open-screen="main" type="button">← COMMAND</button>
+            <div><span>CAMPAIGN MAP</span><h2>SELECT MISSION</h2></div>
+            <div class="credit-pill">◆ <b data-credits>0</b></div>
+          </header>
+          <div id="mission-list" class="mission-list"></div>
+          <p class="screen-footnote">Clear a mission to unlock the next operation and earn field credits.</p>
+        </section>
+
+        <section id="hangar-menu" class="screen is-hidden" data-screen="hangar" aria-label="Tank bay">
+          <header class="screen-header">
+            <button class="back-button" data-open-screen="main" type="button">← COMMAND</button>
+            <div><span>ARMOR INVENTORY</span><h2>TANK BAY</h2></div>
+            <div class="credit-pill">◆ <b data-credits>0</b></div>
+          </header>
+          <div class="hangar-layout">
+            <aside class="hangar-summary">
+              <span class="hud__eyebrow">CURRENT LOADOUT</span>
+              <h3 data-equipped-name>PANTHER</h3>
+              <p id="equipped-description">Balanced armor for a flexible first deployment.</p>
+              <div id="equipped-stats" class="stat-list"></div>
+              <div class="hangar-summary__tip">Purchased tanks are permanently available. Equip one before your next mission.</div>
+            </aside>
+            <div id="tank-list" class="tank-list"></div>
+          </div>
+        </section>
+
+        <section id="upgrades-menu" class="screen is-hidden" data-screen="upgrades" aria-label="Upgrade lab">
+          <header class="screen-header">
+            <button class="back-button" data-open-screen="main" type="button">← COMMAND</button>
+            <div><span>FIELD MODIFICATION</span><h2>UPGRADE LAB</h2></div>
+            <div class="credit-pill">◆ <b data-credits>0</b></div>
+          </header>
+          <div class="upgrade-intro">
+            <div><span class="hud__eyebrow">ACTIVE PLATFORM</span><strong data-equipped-name>PANTHER</strong></div>
+            <p>Every upgrade is fitted immediately and carries into every mission.</p>
+          </div>
+          <div id="upgrade-list" class="upgrade-list"></div>
+        </section>
+
+        <section id="settings-menu" class="screen screen--small is-hidden" data-screen="settings" aria-label="Settings">
+          <header class="screen-header">
+            <button class="back-button" data-open-screen="main" type="button">← COMMAND</button>
+            <div><span>SYSTEM CONTROLS</span><h2>SETTINGS</h2></div>
+            <span></span>
+          </header>
+          <div class="settings-list">
+            <button class="setting-row" data-setting="screenShake" type="button"><span><b>IMPACT SHAKE</b><small>Camera kick on heavy hits</small></span><i></i></button>
+            <button class="setting-row" data-setting="reducedEffects" type="button"><span><b>REDUCED EFFECTS</b><small>Lower flash and particle density</small></span><i></i></button>
+            <button class="setting-row" data-setting="autoFire" type="button"><span><b>HOLD TO FIRE</b><small>Allow continuous fire while holding click or space</small></span><i></i></button>
+          </div>
+          <button id="reset-profile" class="danger-button" type="button">RESET CAMPAIGN PROFILE</button>
+        </section>
+
+        <section id="results-menu" class="results-card is-hidden" data-screen="results" aria-label="Mission result">
+          <span id="result-kicker" class="title-lockup__kicker">MISSION COMPLETE</span>
+          <h2 id="result-title">RANGE SECURED</h2>
+          <p id="result-copy">Your crew has cleared the operation.</p>
+          <div class="result-reward"><span>FIELD CREDITS</span><strong>◆ <b id="result-credits">0</b></strong></div>
+          <div class="result-actions">
+            <button id="result-primary" class="command-button command-button--primary" type="button"><span class="command-button__key">✓</span><span>CONTINUE</span><b>→</b></button>
+            <button id="result-secondary" class="command-button" type="button"><span class="command-button__key">↻</span><span>RETRY MISSION</span><b>→</b></button>
+          </div>
+        </section>
+      </section>
 
       <div class="vignette" aria-hidden="true"></div>
     </main>

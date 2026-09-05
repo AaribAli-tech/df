@@ -41,8 +41,22 @@ function createCanvas(width = 1280, height = 720) {
 
 const mainCanvas = createCanvas();
 const miniCanvas = createCanvas(220, 148);
-const statusLabel = { textContent: "" };
-const toast = { classList: { add: noOp } };
+function createElementShim() {
+  return {
+    textContent: "",
+    innerHTML: "",
+    dataset: {},
+    style: {},
+    classList: { add: noOp, remove: noOp, toggle: noOp },
+    addEventListener: noOp,
+    setAttribute: noOp,
+    querySelectorAll: () => [],
+  };
+}
+
+const statusLabel = createElementShim();
+const toast = createElementShim();
+const genericElements = new Map();
 
 const documentShim = {
   querySelector(selector) {
@@ -50,8 +64,10 @@ const documentShim = {
     if (selector === "#minimap") return miniCanvas;
     if (selector === "#sector-label") return statusLabel;
     if (selector === "#toast") return toast;
-    throw new Error(`Unexpected selector: ${selector}`);
+    if (!genericElements.has(selector)) genericElements.set(selector, createElementShim());
+    return genericElements.get(selector);
   },
+  querySelectorAll: () => [],
   createElement(tagName) {
     assert.equal(tagName, "canvas");
     return createCanvas(32, 32);
@@ -66,17 +82,21 @@ class ImageShim {
 
 const windowShim = {
   devicePixelRatio: 1,
+  __IRONCLAD_TEST__: true,
   addEventListener: noOp,
   setTimeout: noOp,
+  clearTimeout: noOp,
 };
 
+let clock = 0;
+let scheduledFrame = null;
 const sandbox = {
   console,
   document: documentShim,
   window: windowShim,
   Image: ImageShim,
-  performance: { now: () => 0 },
-  requestAnimationFrame: noOp,
+  performance: { now: () => clock },
+  requestAnimationFrame: (callback) => { scheduledFrame = callback; },
   Math,
   Object,
   Array,
@@ -210,7 +230,122 @@ for (const destination of destinations) {
   assert.equal(visited[key(cell.gx, cell.gy)], 1, `${destination.label} must be reachable from player spawn`);
 }
 
-console.log("✓ Map verification passed");
-console.log(`  ${map.solids.length} shared solid colliders across ${Object.keys(byKind).length} object types`);
-console.log(`  ${queue.length} tank-safe navigation samples connected to the player spawn`);
-console.log("  Player spawn, future deployment pads, perimeter walls, and selected arena routes are clear/connected.");
+function verifyActiveMissionMap(levelIndex) {
+  const api = windowShim.__IRONCLAD_TEST_API__;
+  api.loadLevel(levelIndex);
+  const level = api.LEVELS[levelIndex];
+  assert.equal(map.isCircleBlocked(map.playerSpawn.x, map.playerSpawn.y, tankRadius), false, `${level.title} player start must be clear`);
+  assert.ok(map.solids.length > 55, `${level.title} needs substantial hard cover`);
+  for (const spawn of map.enemySpawns) {
+    assert.equal(map.isCircleBlocked(spawn.x, spawn.y, tankRadius), false, `${level.title}: ${spawn.label} must be clear`);
+  }
+
+  const free = new Uint8Array(columns * rows);
+  for (let gy = 0; gy < rows; gy += 1) {
+    for (let gx = 0; gx < columns; gx += 1) {
+      free[key(gx, gy)] = map.isCircleBlocked(origin + gx * step, origin + gy * step, tankRadius) ? 0 : 1;
+    }
+  }
+  const entry = nearestFreeCellFor(free, map.playerSpawn);
+  assert.ok(entry && entry.distance < 56, `${level.title} must have a safe sample at player spawn`);
+  const linked = new Uint8Array(columns * rows);
+  const cells = [entry];
+  linked[key(entry.gx, entry.gy)] = 1;
+  for (let head = 0; head < cells.length; head += 1) {
+    const here = cells[head];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const gx = here.gx + dx;
+      const gy = here.gy + dy;
+      if (gx < 0 || gy < 0 || gx >= columns || gy >= rows) continue;
+      const index = key(gx, gy);
+      if (!free[index] || linked[index]) continue;
+      linked[index] = 1;
+      cells.push({ gx, gy });
+    }
+  }
+  for (const spawn of map.enemySpawns) {
+    const cell = nearestFreeCellFor(free, spawn);
+    assert.ok(cell && cell.distance < 112, `${level.title}: ${spawn.label} needs usable space nearby`);
+    assert.equal(linked[key(cell.gx, cell.gy)], 1, `${level.title}: ${spawn.label} must be reachable from the player start`);
+  }
+  return cells.length;
+}
+
+function nearestFreeCellFor(free, point) {
+  let best = null;
+  for (let gy = 0; gy < rows; gy += 1) {
+    for (let gx = 0; gx < columns; gx += 1) {
+      if (!free[key(gx, gy)]) continue;
+      const x = origin + gx * step;
+      const y = origin + gy * step;
+      const distance = Math.hypot(x - point.x, y - point.y);
+      if (!best || distance < best.distance) best = { gx, gy, distance, x, y };
+    }
+  }
+  return best;
+}
+
+const api = windowShim.__IRONCLAD_TEST_API__;
+assert.ok(api && api.LEVELS.length === 3, "campaign should expose three mission maps");
+const campaignConnectivity = api.LEVELS.map((_level, index) => verifyActiveMissionMap(index));
+
+// Store smoke test: bought armor can be equipped, and the requested multi-fire,
+// ricochet, armor, and health upgrade tracks can all be fitted independently.
+const openingCredits = api.profile.coins;
+api.buyTank("t34");
+assert.ok(api.profile.owned.includes("t34"), "tank bay purchase should unlock the T-34");
+assert.equal(api.profile.selectedTank, "t34", "purchased tank should auto-equip");
+assert.equal(api.profile.coins, openingCredits - 180, "tank purchase should spend credits");
+api.profile.coins = 1000;
+api.buyUpgrade("volley");
+api.buyUpgrade("bounce");
+api.buyUpgrade("armor");
+api.buyUpgrade("hull");
+assert.equal(api.profile.upgrades.volley, 2, "volley should advance from single to dual fire");
+assert.equal(api.profile.upgrades.bounce, 1, "ricochet should gain its first bounce");
+assert.equal(api.profile.upgrades.armor, 1, "armor track should fit a plate layer");
+assert.equal(api.profile.upgrades.hull, 1, "health track should reinforce the hull");
+api.equipTank("panther");
+assert.equal(api.profile.selectedTank, "panther", "owned tanks should be re-equippable");
+
+// Campaign smoke test: boot an operation and advance the real animation loop
+// until its first wave has deployed. This catches broken menu-to-game handoffs,
+// wave queues, navigation setup, and enemy construction without a browser.
+api.startMission(0);
+assert.equal(api.game.state, "playing", "launching a mission should enter combat");
+for (let frame = 0; frame < 430; frame += 1) {
+  clock += 16;
+  assert.ok(scheduledFrame, "game loop should continue scheduling frames");
+  scheduledFrame(clock);
+}
+assert.ok(api.enemies.length > 0, "the first mission should deploy hostile tanks");
+assert.equal(api.game.waveIndex, 0, "the first mission should be operating its first wave");
+
+// Shell smoke checks: the fitted dual array must damage a hostile, and a fitted
+// ricochet tier must preserve a shell after it reflects from a concrete wall.
+const target = api.enemies[0];
+api.player.x = 1800;
+api.player.y = 1200;
+api.player.heading = Math.PI / 2;
+api.player.turretHeading = Math.PI / 2;
+target.x = 2030;
+target.y = 1200;
+const beforeHit = target.health;
+api.bullets.length = 0;
+api.firePlayerVolley();
+api.updateBullets(0.22);
+assert.ok(target.health < beforeHit || target.dead, "player volley should damage a hostile tank");
+
+target.x = 900;
+target.y = 700;
+api.player.x = 2400;
+api.player.y = 1200;
+api.player.turretHeading = Math.PI / 2;
+api.bullets.length = 0;
+api.firePlayerVolley();
+api.updateBullets(0.12);
+assert.ok(api.bullets.some((bullet) => bullet.team === "player" && bullet.bounces === 0), "ricochet tier should reflect shells from hard cover");
+
+console.log("✓ Campaign map & combat smoke verification passed");
+console.log(`  ${api.LEVELS.length} mission maps with ${campaignConnectivity.join(", ")} connected tank-safe navigation samples`);
+console.log("  Player starts, hostile deployment sites, hard cover, perimeter collision, tactical passages, and representative routes are clear/connected.");

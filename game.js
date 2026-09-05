@@ -2,11 +2,8 @@
   "use strict";
 
   // ---------------------------------------------------------------------------
-  // Ironwood Range: map-only prototype
+  // Ironclad: Ricochet — campaign, combat, tanks, and battlefield maps.
   // ---------------------------------------------------------------------------
-  // This file intentionally contains no combat, enemy, upgrade, currency, or
-  // menu logic. It owns the arena terrain, reusable solid geometry, camera,
-  // and just enough tank driving to inspect every route and collision surface.
 
   const canvas = document.querySelector("#game");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -14,6 +11,40 @@
   const miniCtx = minimap.getContext("2d", { alpha: false });
   const sectorLabel = document.querySelector("#sector-label");
   const toast = document.querySelector("#toast");
+
+  const ui = {
+    app: document.querySelector("#app"),
+    menuLayer: document.querySelector("#menu-layer"),
+    hud: document.querySelector("#hud"),
+    combatHelp: document.querySelector("#combat-help"),
+    missionList: document.querySelector("#mission-list"),
+    tankList: document.querySelector("#tank-list"),
+    upgradeList: document.querySelector("#upgrade-list"),
+    equippedDescription: document.querySelector("#equipped-description"),
+    equippedStats: document.querySelector("#equipped-stats"),
+    campaignProgress: document.querySelector("#campaign-progress"),
+    hudCoins: document.querySelector("#hud-coins"),
+    hudSector: document.querySelector("#hud-sector"),
+    hudMission: document.querySelector("#hud-mission"),
+    hudObjective: document.querySelector("#hud-objective"),
+    hudTankName: document.querySelector("#hud-tank-name"),
+    hudHealthText: document.querySelector("#hud-health-text"),
+    hudHealthFill: document.querySelector("#hud-health-fill"),
+    hudArmorPips: document.querySelector("#hud-armor-pips"),
+    hudWave: document.querySelector("#hud-wave"),
+    hudEnemies: document.querySelector("#hud-enemies"),
+    pauseButton: document.querySelector("#pause-button"),
+    resetProfile: document.querySelector("#reset-profile"),
+    resultKicker: document.querySelector("#result-kicker"),
+    resultTitle: document.querySelector("#result-title"),
+    resultCopy: document.querySelector("#result-copy"),
+    resultCredits: document.querySelector("#result-credits"),
+    resultPrimary: document.querySelector("#result-primary"),
+    resultSecondary: document.querySelector("#result-secondary"),
+  };
+  const screens = Array.from(document.querySelectorAll ? document.querySelectorAll("[data-screen]") : []);
+  const currencyNodes = Array.from(document.querySelectorAll ? document.querySelectorAll("[data-credits]") : []);
+  const equippedNameNodes = Array.from(document.querySelectorAll ? document.querySelectorAll("[data-equipped-name]") : []);
 
   const TILE = 32;
   const WORLD = Object.freeze({
@@ -39,14 +70,162 @@
   const decals = [];
   const roads = [];
   let objectId = 0;
+  let playerSpawn = { x: 288, y: 1280, label: "PLAYER START" };
+  let enemySpawns = [];
+  let currentLevelIndex = 0;
+  let currentTheme = "ironwood";
+  let miniStatic = null;
+  let navField = null;
 
-  const playerSpawn = Object.freeze({ x: 288, y: 1280, label: "PLAYER START" });
-  const enemySpawns = Object.freeze([
-    { x: 2850, y: 324, label: "NORTH DEPLOYMENT" },
-    { x: 3544, y: 1280, label: "EAST DEPLOYMENT" },
-    { x: 3400, y: 2256, label: "SOUTHEAST DEPLOYMENT" },
-    { x: 1750, y: 2290, label: "SOUTH DEPLOYMENT" },
-    { x: 294, y: 700, label: "NORTHWEST DEPLOYMENT" },
+  const TANKS = Object.freeze([
+    {
+      id: "panther",
+      name: "PANTHER",
+      className: "FIELD STANDARD",
+      price: 0,
+      health: 120,
+      speed: 245,
+      armor: 1,
+      damage: 20,
+      description: "Balanced armor with reliable speed and handling.",
+      hull: "Panther/ww2_top_view_hull1.png",
+      turret: "Panther/ww2_top_view_turret1.png",
+    },
+    {
+      id: "t34",
+      name: "T-34",
+      className: "SKIRMISHER",
+      price: 180,
+      health: 105,
+      speed: 274,
+      armor: 0,
+      damage: 18,
+      description: "Fast flank armor for crews that live on the move.",
+      hull: "T-34/ww2_top_view_hull4.png",
+      turret: "T-34/ww2_top_view_turret4.png",
+    },
+    {
+      id: "sherman",
+      name: "SHERMAN",
+      className: "LINEBREAKER",
+      price: 330,
+      health: 148,
+      speed: 223,
+      armor: 2,
+      damage: 22,
+      description: "Steady, resilient armor built to own open lanes.",
+      hull: "Sherman/ww2_top_view_hull10.png",
+      turret: "Sherman/ww2_top_view_turret10.png",
+    },
+    {
+      id: "tiger",
+      name: "TIGER",
+      className: "HEAVY ASSAULT",
+      price: 560,
+      health: 190,
+      speed: 188,
+      armor: 3,
+      damage: 28,
+      description: "Slow but formidable heavy armor for decisive pushes.",
+      hull: "Tiger/ww2_top_view_hull3.png",
+      turret: "Tiger/ww2_top_view_turret3.png",
+    },
+  ]);
+
+  const ENEMY_TYPES = Object.freeze({
+    scout: { id: "scout", name: "SCOUT", tankId: "m13", health: 52, speed: 142, armor: 0, damage: 9, fireRate: 1.4, reward: 8, range: 470, color: "#df7e56" },
+    raider: { id: "raider", name: "RAIDER", tankId: "t34", health: 78, speed: 124, armor: 1, damage: 12, fireRate: 1.25, reward: 12, range: 500, color: "#e09558" },
+    guard: { id: "guard", name: "GUARD", tankId: "panzer", health: 112, speed: 97, armor: 2, damage: 15, fireRate: 1.08, reward: 18, range: 540, color: "#d57b5c" },
+    heavy: { id: "heavy", name: "HEAVY", tankId: "tiger", health: 165, speed: 76, armor: 3, damage: 20, fireRate: 0.92, reward: 28, range: 580, color: "#d15c4c" },
+  });
+
+  const ENEMY_TANK_ART = Object.freeze({
+    m13: { hull: "M13/ww2_top_view_hull13.png", turret: "M13/ww2_top_view_turret13.png" },
+    t34: { hull: "T-34/ww2_top_view_hull4.png", turret: "T-34/ww2_top_view_turret4.png" },
+    panzer: { hull: "Panzer 4/ww2_top_view_hull2.png", turret: "Panzer 4/ww2_top_view_turret2.png" },
+    tiger: { hull: "Tiger/ww2_top_view_hull3.png", turret: "Tiger/ww2_top_view_turret3.png" },
+  });
+
+  const UPGRADES = Object.freeze([
+    { id: "volley", icon: "Ⅳ", title: "MULTI-CANNON ARRAY", levels: 4, costs: [0, 90, 170, 270], description: "Adds a barrel each tier: single, dual, triple, then quad fire.", effect: (level) => `${level} BARREL${level === 1 ? "" : "S"}` },
+    { id: "bounce", icon: "↗", title: "RICOCHET LINING", levels: 4, costs: [110, 165, 230, 310], description: "Lets player shells rebound from solid cover before expiring.", effect: (level) => `${level} BOUNCE${level === 1 ? "" : "S"}` },
+    { id: "armor", icon: "▰", title: "REACTIVE ARMOR", levels: 4, costs: [90, 145, 210, 290], description: "Reduces incoming shell damage with reinforced plate layers.", effect: (level) => `+${level} ARMOR` },
+    { id: "hull", icon: "+", title: "REINFORCED HULL", levels: 4, costs: [85, 135, 200, 280], description: "Raises maximum health for every tank in your garage.", effect: (level) => `+${level * 24} HP` },
+  ]);
+
+  // Maps are intentionally different combat problems: wide lane control,
+  // industrial choke points, then a fortified ring with many ricochet surfaces.
+  const LEVELS = Object.freeze([
+    {
+      id: "ironwood",
+      number: "01",
+      title: "IRONWOOD RANGE",
+      subtitle: "GREENLINE TRAINING",
+      description: "Secure the range crossroad and clear the first hostile probe.",
+      theme: "ironwood",
+      reward: 90,
+      map: buildIronwoodMap,
+      playerSpawn: { x: 288, y: 1280, label: "PLAYER START" },
+      spawns: [
+        { x: 2850, y: 324, label: "NORTH DEPLOYMENT" },
+        { x: 3544, y: 1280, label: "EAST DEPLOYMENT" },
+        { x: 3400, y: 2256, label: "SOUTHEAST DEPLOYMENT" },
+        { x: 1750, y: 2290, label: "SOUTH DEPLOYMENT" },
+        { x: 294, y: 700, label: "NORTHWEST DEPLOYMENT" },
+      ],
+      waves: [
+        [{ type: "scout", count: 4 }],
+        [{ type: "scout", count: 3 }, { type: "raider", count: 2 }],
+        [{ type: "raider", count: 3 }, { type: "guard", count: 1 }],
+      ],
+    },
+    {
+      id: "cinder",
+      number: "02",
+      title: "CINDER DEPOT",
+      subtitle: "CONVOY INTERCEPT",
+      description: "Break the depot cordon before the armored convoy escapes.",
+      theme: "cinder",
+      reward: 150,
+      map: buildCinderMap,
+      playerSpawn: { x: 420, y: 2200, label: "SOUTHWEST INSERTION" },
+      spawns: [
+        { x: 180, y: 750, label: "NORTHWEST DEPLOYMENT" },
+        { x: 1880, y: 290, label: "NORTH DEPLOYMENT" },
+        { x: 3470, y: 520, label: "NORTHEAST DEPLOYMENT" },
+        { x: 3490, y: 1550, label: "EAST DEPLOYMENT" },
+        { x: 2580, y: 2260, label: "SOUTH DEPLOYMENT" },
+      ],
+      waves: [
+        [{ type: "scout", count: 3 }, { type: "raider", count: 2 }],
+        [{ type: "raider", count: 4 }, { type: "guard", count: 2 }],
+        [{ type: "scout", count: 2 }, { type: "guard", count: 3 }, { type: "heavy", count: 1 }],
+      ],
+    },
+    {
+      id: "citadel",
+      number: "03",
+      title: "BLACKWATER CITADEL",
+      subtitle: "FINAL HOLDOUT",
+      description: "Punch through a fortified ring and silence the last defenders.",
+      theme: "citadel",
+      reward: 230,
+      map: buildCitadelMap,
+      playerSpawn: { x: 1940, y: 2260, label: "SOUTH INSERTION" },
+      spawns: [
+        { x: 190, y: 760, label: "NORTHWEST DEPLOYMENT" },
+        { x: 1920, y: 300, label: "NORTH DEPLOYMENT" },
+        { x: 3640, y: 760, label: "NORTHEAST DEPLOYMENT" },
+        { x: 3620, y: 2160, label: "SOUTHEAST DEPLOYMENT" },
+        { x: 180, y: 2200, label: "SOUTHWEST DEPLOYMENT" },
+      ],
+      waves: [
+        [{ type: "raider", count: 4 }, { type: "guard", count: 2 }],
+        [{ type: "scout", count: 3 }, { type: "raider", count: 3 }, { type: "guard", count: 2 }],
+        [{ type: "guard", count: 4 }, { type: "heavy", count: 2 }],
+        [{ type: "raider", count: 3 }, { type: "guard", count: 3 }, { type: "heavy", count: 2 }],
+      ],
+    },
   ]);
 
   const player = {
@@ -57,8 +236,15 @@
     heading: Math.PI / 2,
     turretHeading: Math.PI / 2,
     radius: 42,
-    speed: 250,
+    speed: 245,
     acceleration: 1500,
+    tankId: "panther",
+    health: 120,
+    maxHealth: 120,
+    armor: 1,
+    damage: 20,
+    nextFireAt: 0,
+    invulnerableUntil: 0,
   };
 
   const camera = {
@@ -69,29 +255,84 @@
     height: 720,
   };
 
-  const input = new Set();
-  const pointer = { x: 0, y: 0, seen: false };
+  const game = {
+    state: "menu",
+    menuScreen: "main",
+    level: null,
+    waveIndex: -1,
+    waveDelay: 0,
+    spawnQueue: [],
+    spawnTimer: 0,
+    killed: 0,
+    earnedCredits: 0,
+    completed: false,
+    nextFlowRefresh: 0,
+    lastResult: null,
+  };
+  const enemies = [];
+  const bullets = [];
+  const particles = [];
+  const floatingTexts = [];
+  let screenShake = 0;
   let dpr = 1;
   let lastTime = performance.now();
   let elapsed = 0;
-  let miniStatic = null;
 
-  // The supplied tank art stays as the actual player vehicle. The hull and
-  // turret are layered independently so later systems can reuse this setup.
-  const tankArt = {
-    hull: new Image(),
-    turret: new Image(),
-    hullReady: false,
-    turretReady: false,
-  };
-  tankArt.hull.onload = () => {
-    tankArt.hullReady = true;
-  };
-  tankArt.turret.onload = () => {
-    tankArt.turretReady = true;
-  };
-  tankArt.hull.src = "Panther/ww2_top_view_hull1.png";
-  tankArt.turret.src = "Panther/ww2_top_view_turret1.png";
+  const input = new Set();
+  const pointer = { x: 0, y: 0, seen: false, down: false };
+
+  function safeReadProfile() {
+    const defaults = {
+      coins: 240,
+      owned: ["panther"],
+      selectedTank: "panther",
+      unlockedLevel: 1,
+      completed: [],
+      upgrades: { volley: 1, bounce: 0, armor: 0, hull: 0 },
+      settings: { screenShake: true, reducedEffects: false, autoFire: true },
+    };
+    try {
+      const stored = window.localStorage && window.localStorage.getItem("ironclad-profile-v2");
+      if (!stored) return defaults;
+      const parsed = JSON.parse(stored);
+      return {
+        ...defaults,
+        ...parsed,
+        owned: Array.from(new Set(["panther", ...(parsed.owned || [])])),
+        upgrades: { ...defaults.upgrades, ...(parsed.upgrades || {}) },
+        settings: { ...defaults.settings, ...(parsed.settings || {}) },
+        completed: Array.from(new Set(parsed.completed || [])),
+      };
+    } catch (_error) {
+      return defaults;
+    }
+  }
+
+  const profile = safeReadProfile();
+
+  function saveProfile() {
+    try {
+      if (window.localStorage) window.localStorage.setItem("ironclad-profile-v2", JSON.stringify(profile));
+    } catch (_error) {
+      // Campaign still works for this session if storage is unavailable.
+    }
+  }
+
+  function createImageAsset(source) {
+    const image = new Image();
+    const record = { image, ready: false };
+    image.onload = () => { record.ready = true; };
+    image.src = encodeURI(source);
+    return record;
+  }
+
+  const tankArt = {};
+  TANKS.forEach((tank) => {
+    tankArt[tank.id] = { hull: createImageAsset(tank.hull), turret: createImageAsset(tank.turret) };
+  });
+  Object.entries(ENEMY_TANK_ART).forEach(([id, art]) => {
+    if (!tankArt[id]) tankArt[id] = { hull: createImageAsset(art.hull), turret: createImageAsset(art.turret) };
+  });
 
   // ---------------------------------------------------------------------------
   // Small deterministic helpers
@@ -416,13 +657,18 @@
     }
   }
 
-  function buildMap() {
-    // The perimeter is deliberately continuous. It sets a clean arena edge,
-    // while the internal sections below create the routes and bounce corners.
+  function addArenaPerimeter() {
     addWall(0, 0, WORLD.width, 64, { style: "perimeter", name: "north perimeter" });
     addWall(0, WORLD.height - 64, WORLD.width, 64, { style: "perimeter", name: "south perimeter" });
     addWall(0, 64, 64, WORLD.height - 128, { style: "perimeter", name: "west perimeter" });
     addWall(WORLD.width - 64, 64, 64, WORLD.height - 128, { style: "perimeter", name: "east perimeter" });
+  }
+
+  function buildIronwoodMap() {
+    addIronwoodRoads();
+    // The perimeter is deliberately continuous. It sets a clean arena edge,
+    // while the internal sections below create routes and ricochet corners.
+    addArenaPerimeter();
 
     // Terrain staging: pads are passable concrete or gravel beneath structures.
     addGroundPad("concrete", 128, 1120, 352, 320, { label: "START APRON" });
@@ -553,9 +799,178 @@
     addDecoration("tireTracks", 1915, 880, { length: 530, rotation: Math.PI / 2 });
   }
 
+  function buildCinderMap() {
+    addArenaPerimeter();
+    roads.push(
+      { points: [[170, 610], [700, 610], [1220, 620], [1850, 620], [2540, 630], [3670, 610]], core: 84, edge: 136 },
+      { points: [[1880, 150], [1880, 600], [1900, 1120], [1900, 1660], [1880, 2370]], core: 70, edge: 118 },
+      { points: [[380, 2100], [980, 2080], [1430, 1960], [1880, 1690]], core: 60, edge: 105 },
+      { points: [[2450, 2240], [2900, 2050], [3260, 1700], [3500, 1420]], core: 60, edge: 105 },
+      { points: [[730, 1020], [1180, 1120], [1500, 1300], [1900, 1370], [2400, 1300], [2900, 1100]], core: 46, edge: 88 }
+    );
+
+    addGroundPad("concrete", 190, 1880, 480, 430, { label: "INSERTION APRON" });
+    addGroundPad("gravel", 250, 220, 640, 680);
+    addGroundPad("concrete", 1080, 360, 690, 560);
+    addGroundPad("gravel", 2060, 360, 770, 580);
+    addGroundPad("concrete", 3000, 300, 550, 560);
+    addGroundPad("concrete", 1130, 1110, 920, 620);
+    addGroundPad("gravel", 2440, 1040, 900, 650);
+    addGroundPad("concrete", 1900, 1840, 980, 520);
+    addGroundPad("gravel", 3000, 1750, 560, 550);
+
+    // Northwest rail yard: straight lanes, container-like walls, and open exits.
+    addBunker(250, 280, 230, 150, { roof: "slate", name: "rail dispatch" });
+    addWall(520, 448, 448, 64, { name: "rail yard north wall" });
+    addWall(904, 448, 64, 256, { name: "rail yard north wall" });
+    addWall(336, 800, 416, 64, { name: "rail yard lower wall" });
+    addCrateCluster(544, 556, [[0, 0, 48], [52, 0, 48], [104, 0, 48], [27, 52, 48]], "cool");
+    addBarrelCluster(744, 594, 4, "rust");
+    addRuin(248, 560, 150, 116, { tone: "brick", name: "burned shed" });
+    addRockCluster(1020, 430, [[0, 0, 52, 37], [42, 27, 42, 31]]);
+    addBush(154, 750, 48, 25);
+
+    // Central freight maze: broad crossings remain available between each block.
+    addWall(1190, 450, 416, 64, { name: "freight wall north" });
+    addWall(1538, 450, 64, 280, { name: "freight wall north" });
+    addBunker(1210, 714, 220, 142, { roof: "olive", name: "freight office" });
+    addWall(1712, 924, 576, 64, { name: "central depot screen" });
+    addWall(2216, 924, 64, 288, { name: "central depot screen" });
+    addWall(1170, 1170, 64, 384, { name: "center west divider" });
+    addWall(1234, 1490, 352, 64, { name: "center west divider" });
+    addCrateCluster(1462, 1054, [[0, 0, 48], [52, 0, 48], [0, 52, 48]], "warm");
+    addBarrelCluster(1644, 1090, 3, "olive");
+    addSandbags(1840, 1320, 160, 32, { direction: "horizontal" });
+    addBarricade(2050, 1424, 128, 32, { stripe: true });
+    addRockCluster(1350, 1618, [[0, 0, 52, 38], [42, 28, 44, 31]]);
+
+    // Northeast maintenance row.
+    addBunker(2990, 338, 260, 155, { roof: "olive", name: "maintenance bay" });
+    addWall(2740, 584, 448, 64, { name: "northeast loading wall" });
+    addWall(3120, 584, 64, 288, { name: "northeast loading wall" });
+    addCrateCluster(2700, 716, [[0, 0, 48], [53, 1, 48], [26, 52, 48]], "warm");
+    addBarrelCluster(2880, 730, 4, "rust");
+    addRockCluster(3380, 760, [[0, 0, 55, 40], [40, 29, 41, 29]]);
+    addBush(3510, 935, 48, 24);
+
+    // Southeast service yard, linked to the main depot by two generous lanes.
+    addWall(2500, 1520, 480, 64, { name: "east service screen" });
+    addWall(2916, 1520, 64, 320, { name: "east service screen" });
+    addBunker(3160, 1740, 230, 148, { roof: "slate", name: "service control" });
+    addWall(2230, 1950, 512, 64, { name: "south freight wall" });
+    addWall(2230, 1950, 64, 288, { name: "south freight wall" });
+    addCrateCluster(2770, 1900, [[0, 0, 48], [52, 0, 48], [104, 0, 48], [26, 52, 48]], "cool");
+    addBarrelCluster(3012, 1924, 3, "olive");
+    addBarricade(3250, 2006, 128, 32, { stripe: true });
+    addRuin(3340, 2140, 150, 116, { tone: "brick", name: "collapsed depot" });
+    addTree(2800, 2220, 64);
+    addBush(2925, 2300, 49, 24);
+
+    // Southwest insertion has several cover islands but no dead-end around spawn.
+    addBunker(250, 1960, 230, 148, { roof: "olive", name: "insertion store" });
+    addWall(650, 1810, 64, 352, { name: "southwest revetment" });
+    addWall(650, 2098, 384, 64, { name: "southwest revetment" });
+    addCrateCluster(770, 1740, [[0, 0, 48], [52, 0, 48], [0, 52, 48]], "warm");
+    addRockCluster(1050, 2012, [[0, 0, 56, 39], [44, 29, 42, 31], [3, 51, 38, 27]]);
+    addBush(890, 2250, 52, 26);
+
+    scatterDecals("rubble", 180, 240, 3440, 2020, 190, 91);
+    scatterDecals("tuft", 140, 170, 3550, 2200, 42, 119);
+    addDecoration("stencil", 1000, 684, { text: "DEPOT 7", rotation: 0 });
+    addDecoration("stencil", 2460, 1300, { text: "FREIGHT", rotation: 0 });
+    addDecoration("stencil", 540, 1720, { text: "SOUTH GATE", rotation: 0 });
+    addDecoration("tireTracks", 800, 620, { length: 740, rotation: 0 });
+    addDecoration("tireTracks", 1876, 810, { length: 770, rotation: Math.PI / 2 });
+  }
+
+  function buildCitadelMap() {
+    addArenaPerimeter();
+    roads.push(
+      { points: [[1900, 140], [1900, 510], [1900, 770], [1900, 1120], [1900, 1550], [1940, 2350]], core: 70, edge: 116 },
+      { points: [[180, 1260], [760, 1260], [1110, 1260], [1550, 1280], [2230, 1280], [2750, 1260], [3660, 1260]], core: 76, edge: 126 },
+      { points: [[360, 420], [700, 670], [920, 900], [1100, 1160]], core: 49, edge: 92 },
+      { points: [[3470, 420], [3170, 670], [2920, 900], [2700, 1160]], core: 49, edge: 92 },
+      { points: [[420, 2070], [780, 1830], [1050, 1640], [1260, 1480]], core: 49, edge: 92 },
+      { points: [[3450, 2070], [3100, 1820], [2800, 1600], [2620, 1480]], core: 49, edge: 92 }
+    );
+
+    addGroundPad("concrete", 1660, 1980, 560, 360, { label: "SOUTH INSERTION" });
+    addGroundPad("gravel", 230, 220, 740, 720);
+    addGroundPad("gravel", 2860, 220, 740, 720);
+    addGroundPad("concrete", 930, 650, 1980, 1250, { label: "CITADEL INTERIOR" });
+    addGroundPad("gravel", 240, 1660, 760, 570);
+    addGroundPad("gravel", 2850, 1660, 720, 570);
+
+    // A broken square fort gives clear corners and four non-dead-end approaches.
+    addWall(1120, 640, 576, 64, { name: "citadel north west" });
+    addWall(2144, 640, 576, 64, { name: "citadel north east" });
+    addWall(960, 800, 64, 480, { name: "citadel west north" });
+    addWall(960, 1456, 64, 384, { name: "citadel west south" });
+    addWall(2816, 800, 64, 480, { name: "citadel east north" });
+    addWall(2816, 1456, 64, 384, { name: "citadel east south" });
+    addWall(1120, 1856, 576, 64, { name: "citadel south west" });
+    addWall(2144, 1856, 576, 64, { name: "citadel south east" });
+
+    // Interior screens make deliberate ricochet pockets without sealing the bowl.
+    addWall(1270, 960, 352, 64, { name: "inner west screen" });
+    addWall(1270, 960, 64, 256, { name: "inner west screen" });
+    addWall(2220, 960, 352, 64, { name: "inner east screen" });
+    addWall(2508, 960, 64, 256, { name: "inner east screen" });
+    addWall(1440, 1536, 320, 64, { name: "inner south west" });
+    addWall(2080, 1536, 320, 64, { name: "inner south east" });
+    addBunker(1740, 1060, 360, 220, { roof: "slate", name: "citadel core" });
+    addSandbags(1600, 1370, 160, 32, { direction: "horizontal" });
+    addSandbags(2080, 1370, 160, 32, { direction: "horizontal" });
+    addBarricade(1780, 1450, 128, 32, { stripe: true });
+    addBarricade(1980, 1450, 128, 32, { stripe: true });
+    addCrateCluster(1110, 1320, [[0, 0, 48], [52, 0, 48], [26, 52, 48]], "cool");
+    addCrateCluster(2600, 1320, [[0, 0, 48], [52, 0, 48], [26, 52, 48]], "warm");
+
+    // Outer deployment yards.
+    addBunker(250, 300, 224, 146, { roof: "olive", name: "west relay" });
+    addWall(480, 520, 352, 64, { name: "northwest yard wall" });
+    addWall(768, 520, 64, 260, { name: "northwest yard wall" });
+    addCrateCluster(480, 650, [[0, 0, 48], [52, 0, 48], [0, 52, 48]], "warm");
+    addBarrelCluster(672, 650, 4, "rust");
+    addRockCluster(560, 980, [[0, 0, 55, 39], [46, 28, 42, 31]]);
+    addTree(280, 1000, 64);
+    addBush(418, 1070, 50, 25);
+
+    addBunker(3360, 300, 224, 146, { roof: "olive", name: "east relay" });
+    addWall(3008, 520, 352, 64, { name: "northeast yard wall" });
+    addWall(3008, 520, 64, 260, { name: "northeast yard wall" });
+    addCrateCluster(3100, 650, [[0, 0, 48], [52, 0, 48], [0, 52, 48]], "cool");
+    addBarrelCluster(3300, 650, 4, "olive");
+    addRockCluster(3200, 980, [[0, 0, 55, 39], [46, 28, 42, 31]]);
+    addTree(3470, 1000, 64);
+    addBush(3320, 1080, 50, 25);
+
+    addBunker(270, 1940, 224, 146, { roof: "slate", name: "west field bay" });
+    addWall(500, 1800, 352, 64, { name: "southwest yard wall" });
+    addWall(788, 1580, 64, 284, { name: "southwest yard wall" });
+    addCrateCluster(530, 1700, [[0, 0, 48], [52, 0, 48], [26, 52, 48]], "warm");
+    addBarrelCluster(712, 1720, 3, "rust");
+    addRockCluster(390, 2200, [[0, 0, 55, 39], [46, 28, 42, 31]]);
+
+    addBunker(3330, 1940, 224, 146, { roof: "slate", name: "east field bay" });
+    addWall(2990, 1800, 352, 64, { name: "southeast yard wall" });
+    addWall(2990, 1580, 64, 284, { name: "southeast yard wall" });
+    addCrateCluster(3100, 1700, [[0, 0, 48], [52, 0, 48], [26, 52, 48]], "cool");
+    addBarrelCluster(3280, 1720, 3, "olive");
+    addRockCluster(3400, 2200, [[0, 0, 55, 39], [46, 28, 42, 31]]);
+
+    scatterDecals("rubble", 170, 200, 3480, 2180, 210, 199);
+    scatterDecals("tuft", 150, 160, 3500, 2230, 38, 333);
+    addDecoration("stencil", 1730, 860, { text: "BLACKWATER", rotation: 0 });
+    addDecoration("stencil", 1690, 1710, { text: "CITADEL", rotation: 0 });
+    addDecoration("tireTracks", 1160, 1260, { length: 1520, rotation: 0 });
+    addDecoration("tireTracks", 1898, 730, { length: 980, rotation: Math.PI / 2 });
+  }
+
   // Dirt paths are intentionally broad and continuous; their worn shoulders
   // provide a clear, tile-aligned terrain transition without affecting driving.
-  roads.push(
+  function addIronwoodRoads() {
+    roads.push(
     { points: [[150, 1280], [720, 1280], [1090, 1260], [1620, 1280], [2260, 1280], [2860, 1280], [3680, 1280]], core: 78, edge: 128 },
     { points: [[1920, 150], [1920, 560], [1940, 910], [1920, 1270], [1940, 1690], [1940, 2360]], core: 70, edge: 116 },
     { points: [[330, 700], [820, 690], [1220, 710], [1620, 760]], core: 54, edge: 94 },
@@ -564,9 +979,8 @@
     { points: [[2240, 2130], [2720, 2190], [3150, 2200], [3540, 2250]], core: 54, edge: 96 },
     { points: [[840, 1540], [1140, 1540], [1400, 1600], [1600, 1760], [1680, 2050]], core: 44, edge: 82 },
     { points: [[2580, 1510], [2780, 1610], [2900, 1840], [2940, 2130]], core: 44, edge: 82 }
-  );
-
-  buildMap();
+    );
+  }
 
   function terrainIndex(tx, ty) {
     return ty * WORLD.columns + tx;
@@ -628,6 +1042,41 @@
   }
 
   initializeTerrain();
+
+  function clearMapData() {
+    solids.length = 0;
+    scenery.length = 0;
+    groundPads.length = 0;
+    decals.length = 0;
+    roads.length = 0;
+    terrain.fill(TERRAIN.grass);
+    objectId = 0;
+    miniStatic = null;
+    navField = null;
+  }
+
+  function loadLevel(index) {
+    const safeIndex = clamp(index, 0, LEVELS.length - 1);
+    const level = LEVELS[safeIndex];
+    currentLevelIndex = safeIndex;
+    currentTheme = level.theme;
+    clearMapData();
+    playerSpawn = { ...level.playerSpawn };
+    enemySpawns = level.spawns.map((spawn) => ({ ...spawn }));
+    level.map();
+    initializeTerrain();
+
+    player.x = playerSpawn.x;
+    player.y = playerSpawn.y;
+    player.vx = 0;
+    player.vy = 0;
+    player.heading = Math.PI / 2;
+    player.turretHeading = Math.PI / 2;
+    applySelectedTankStats(true);
+    centerCameraImmediately();
+    miniStatic = null;
+    return level;
+  }
 
   // ---------------------------------------------------------------------------
   // Collision API — kept independent from player controls for future tanks and
@@ -749,17 +1198,581 @@
     return closest;
   }
 
-  // Exposed map geometry is purposeful: future bullet and AI code can use the
-  // exact same solid list instead of duplicating the collision layout.
+  // The campaign and later systems share one source of truth for every solid.
+  // The spawn getters update as the active mission changes.
   window.BattlefieldMap = Object.freeze({
     world: WORLD,
-    playerSpawn,
-    enemySpawns,
+    get playerSpawn() { return playerSpawn; },
+    get enemySpawns() { return enemySpawns; },
     solids,
     isCircleBlocked,
     moveCircle,
     castSegment,
   });
+
+  // ---------------------------------------------------------------------------
+  // Campaign combat: player shells, ricochets, enemy patrols, and waves.
+  // ---------------------------------------------------------------------------
+
+  function getTank(id) {
+    return TANKS.find((tank) => tank.id === id) || TANKS[0];
+  }
+
+  function getUpgrade(id) {
+    return UPGRADES.find((upgrade) => upgrade.id === id);
+  }
+
+  function directionFromAngle(angle) {
+    return { x: Math.sin(angle), y: -Math.cos(angle) };
+  }
+
+  function angleTo(fromX, fromY, toX, toY) {
+    return Math.atan2(toX - fromX, -(toY - fromY));
+  }
+
+  function easeAngle(current, target, speed, delta) {
+    const difference = ((target - current + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    return current + difference * Math.min(1, speed * delta);
+  }
+
+  function applySelectedTankStats(fullRepair = false) {
+    const tank = getTank(profile.selectedTank);
+    if (!profile.owned.includes(tank.id)) profile.selectedTank = "panther";
+    const selected = getTank(profile.selectedTank);
+    const oldMax = player.maxHealth || selected.health;
+    player.tankId = selected.id;
+    player.speed = selected.speed;
+    player.armor = selected.armor + profile.upgrades.armor;
+    player.damage = selected.damage;
+    player.maxHealth = selected.health + profile.upgrades.hull * 24;
+    player.radius = selected.id === "tiger" ? 45 : 42;
+    player.health = fullRepair
+      ? player.maxHealth
+      : clamp(player.health + (player.maxHealth - oldMax), 1, player.maxHealth);
+  }
+
+  function addParticle(x, y, options = {}) {
+    const reduced = profile.settings.reducedEffects;
+    if (reduced && particles.length > 38) return;
+    particles.push({
+      x,
+      y,
+      vx: options.vx || 0,
+      vy: options.vy || 0,
+      life: options.life || 0.35,
+      maxLife: options.life || 0.35,
+      size: options.size || 3,
+      color: options.color || "#f1d38a",
+      drag: options.drag ?? 0.9,
+    });
+  }
+
+  function burst(x, y, palette, count = 10, power = 100) {
+    const actualCount = profile.settings.reducedEffects ? Math.max(3, Math.floor(count / 2)) : count;
+    for (let index = 0; index < actualCount; index += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const velocity = power * (0.3 + Math.random() * 0.7);
+      addParticle(x, y, {
+        vx: Math.cos(angle) * velocity,
+        vy: Math.sin(angle) * velocity,
+        life: 0.25 + Math.random() * 0.35,
+        size: 2 + Math.floor(Math.random() * 3),
+        color: palette[index % palette.length],
+        drag: 0.88,
+      });
+    }
+  }
+
+  function addFloatingText(x, y, text, color = "#f4d48a") {
+    floatingTexts.push({ x, y, text, color, life: 0.78, maxLife: 0.78, vy: -26 });
+  }
+
+  function spawnBullet(options) {
+    bullets.push({
+      x: options.x,
+      y: options.y,
+      vx: options.vx,
+      vy: options.vy,
+      radius: options.radius || 4,
+      damage: options.damage,
+      team: options.team,
+      bounces: options.bounces || 0,
+      life: options.life || 1.7,
+      color: options.color,
+      trail: options.trail,
+    });
+  }
+
+  function firePlayerVolley() {
+    const count = profile.upgrades.volley;
+    const spreads = {
+      1: [0],
+      2: [-0.048, 0.048],
+      3: [-0.09, 0, 0.09],
+      4: [-0.13, -0.043, 0.043, 0.13],
+    }[count] || [0];
+    const forward = directionFromAngle(player.turretHeading);
+    const cross = { x: Math.cos(player.turretHeading), y: Math.sin(player.turretHeading) };
+
+    spreads.forEach((spread, index) => {
+      const angle = player.turretHeading + spread;
+      const direction = directionFromAngle(angle);
+      const lateral = (index - (spreads.length - 1) / 2) * 5;
+      spawnBullet({
+        x: player.x + forward.x * 49 + cross.x * lateral,
+        y: player.y + forward.y * 49 + cross.y * lateral,
+        vx: direction.x * 730,
+        vy: direction.y * 730,
+        damage: player.damage,
+        team: "player",
+        bounces: profile.upgrades.bounce,
+        color: "#d8f3a3",
+        trail: "#91d9c2",
+      });
+    });
+
+    player.nextFireAt = elapsed + 0.39;
+    burst(player.x + forward.x * 45, player.y + forward.y * 45, ["#fff4bc", "#ffd47c", "#df913f"], 7, 85);
+    if (profile.settings.screenShake) screenShake = Math.max(screenShake, 1.4);
+  }
+
+  function tryPlayerFire() {
+    const holdingFire = pointer.down || input.has("Space");
+    if (!holdingFire || elapsed < player.nextFireAt) return;
+    if (!profile.settings.autoFire && !pointer.justPressed && !input.has("Space")) return;
+    firePlayerVolley();
+    pointer.justPressed = false;
+  }
+
+  function segmentCircleIntersection(start, end, body, extraRadius = 0) {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const lengthSq = dx * dx + dy * dy;
+    if (lengthSq < 0.000001) return null;
+    const t = clamp(((body.x - start.x) * dx + (body.y - start.y) * dy) / lengthSq, 0, 1);
+    const x = start.x + dx * t;
+    const y = start.y + dy * t;
+    const radius = body.radius + extraRadius;
+    const distanceSq = (body.x - x) ** 2 + (body.y - y) ** 2;
+    if (distanceSq > radius * radius) return null;
+    return { t, x, y };
+  }
+
+  function awardCredits(amount, x = player.x, y = player.y) {
+    profile.coins += amount;
+    game.earnedCredits += amount;
+    saveProfile();
+    addFloatingText(x, y - 24, `+${amount} ◆`, "#f3cf80");
+    refreshInterface();
+  }
+
+  function damagePlayer(amount, impactX, impactY) {
+    if (elapsed < player.invulnerableUntil || game.state !== "playing") return;
+    const actualDamage = Math.max(1, Math.round(amount - player.armor * 1.65));
+    player.health = Math.max(0, player.health - actualDamage);
+    player.invulnerableUntil = elapsed + 0.16;
+    burst(impactX, impactY, ["#f3d68a", "#d98259", "#734137"], 10, 105);
+    addFloatingText(player.x, player.y - 48, `-${actualDamage}`, "#f19d76");
+    if (profile.settings.screenShake) screenShake = Math.max(screenShake, 4.6);
+    refreshHud();
+    if (player.health <= 0) finishMission(false);
+  }
+
+  function destroyEnemy(enemy) {
+    if (enemy.dead) return;
+    enemy.dead = true;
+    game.killed += 1;
+    burst(enemy.x, enemy.y, ["#fff0a9", "#efae55", "#c96042", "#4d3931"], 20, 175);
+    awardCredits(enemy.reward, enemy.x, enemy.y);
+    if (profile.settings.screenShake) screenShake = Math.max(screenShake, enemy.type === "heavy" ? 6.5 : 3.2);
+  }
+
+  function damageEnemy(enemy, amount, impactX, impactY) {
+    if (enemy.dead) return;
+    const actualDamage = Math.max(1, Math.round(amount - enemy.armor * 1.15));
+    enemy.health -= actualDamage;
+    burst(impactX, impactY, ["#f2d487", "#d77f52", "#655042"], 7, 78);
+    addFloatingText(enemy.x, enemy.y - 43, `-${actualDamage}`, "#f4ce8b");
+    if (enemy.health <= 0) destroyEnemy(enemy);
+  }
+
+  function updateBullets(delta) {
+    for (let index = bullets.length - 1; index >= 0; index -= 1) {
+      const bullet = bullets[index];
+      bullet.life -= delta;
+      if (bullet.life <= 0) {
+        bullets.splice(index, 1);
+        continue;
+      }
+
+      const start = { x: bullet.x, y: bullet.y };
+      const end = { x: bullet.x + bullet.vx * delta, y: bullet.y + bullet.vy * delta };
+      const wallHit = castSegment(start, end, bullet.radius);
+      let targetHit = null;
+      let target = null;
+
+      if (bullet.team === "player") {
+        for (const enemy of enemies) {
+          if (enemy.dead) continue;
+          const hit = segmentCircleIntersection(start, end, enemy, bullet.radius);
+          if (hit && (!targetHit || hit.t < targetHit.t)) {
+            targetHit = hit;
+            target = enemy;
+          }
+        }
+      } else {
+        targetHit = segmentCircleIntersection(start, end, player, bullet.radius);
+        target = player;
+      }
+
+      if (targetHit && (!wallHit || targetHit.t <= wallHit.t)) {
+        if (bullet.team === "player") damageEnemy(target, bullet.damage, targetHit.x, targetHit.y);
+        else damagePlayer(bullet.damage, targetHit.x, targetHit.y);
+        bullets.splice(index, 1);
+        continue;
+      }
+
+      if (wallHit) {
+        burst(wallHit.x, wallHit.y, ["#d8d6b8", "#abae9d", "#eab85f"], 5, 56);
+        if (bullet.bounces > 0 && (wallHit.normal.x !== 0 || wallHit.normal.y !== 0)) {
+          const dot = bullet.vx * wallHit.normal.x + bullet.vy * wallHit.normal.y;
+          bullet.vx -= 2 * dot * wallHit.normal.x;
+          bullet.vy -= 2 * dot * wallHit.normal.y;
+          bullet.x = wallHit.x + wallHit.normal.x * (bullet.radius + 1.5);
+          bullet.y = wallHit.y + wallHit.normal.y * (bullet.radius + 1.5);
+          bullet.bounces -= 1;
+          bullet.damage = Math.max(1, Math.round(bullet.damage * 0.9));
+          addFloatingText(wallHit.x, wallHit.y - 9, "RICOCHET", "#a7dbea");
+          if (profile.settings.screenShake) screenShake = Math.max(screenShake, 1.3);
+        } else {
+          bullets.splice(index, 1);
+        }
+        continue;
+      }
+
+      bullet.x = end.x;
+      bullet.y = end.y;
+    }
+  }
+
+  function createNavigationTopology() {
+    const step = 64;
+    const origin = 96;
+    const columns = Math.floor((WORLD.width - origin * 2) / step) + 1;
+    const rows = Math.floor((WORLD.height - origin * 2) / step) + 1;
+    const free = new Uint8Array(columns * rows);
+    for (let gy = 0; gy < rows; gy += 1) {
+      for (let gx = 0; gx < columns; gx += 1) {
+        const x = origin + gx * step;
+        const y = origin + gy * step;
+        free[gy * columns + gx] = isCircleBlocked(x, y, 41) ? 0 : 1;
+      }
+    }
+    return { step, origin, columns, rows, free, distances: new Int16Array(columns * rows) };
+  }
+
+  function findNearestNavigationCell(field, x, y) {
+    const initialX = clamp(Math.round((x - field.origin) / field.step), 0, field.columns - 1);
+    const initialY = clamp(Math.round((y - field.origin) / field.step), 0, field.rows - 1);
+    for (let ring = 0; ring < 6; ring += 1) {
+      for (let gy = Math.max(0, initialY - ring); gy <= Math.min(field.rows - 1, initialY + ring); gy += 1) {
+        for (let gx = Math.max(0, initialX - ring); gx <= Math.min(field.columns - 1, initialX + ring); gx += 1) {
+          const index = gy * field.columns + gx;
+          if (field.free[index]) return { gx, gy, index };
+        }
+      }
+    }
+    return null;
+  }
+
+  function rebuildNavigationField() {
+    if (!navField) navField = createNavigationTopology();
+    const field = navField;
+    field.distances.fill(-1);
+    const start = findNearestNavigationCell(field, player.x, player.y);
+    if (!start) return;
+    const queue = [start];
+    field.distances[start.index] = 0;
+    for (let head = 0; head < queue.length; head += 1) {
+      const current = queue[head];
+      const currentDistance = field.distances[current.index];
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const gx = current.gx + dx;
+        const gy = current.gy + dy;
+        if (gx < 0 || gy < 0 || gx >= field.columns || gy >= field.rows) continue;
+        const index = gy * field.columns + gx;
+        if (!field.free[index] || field.distances[index] !== -1) continue;
+        field.distances[index] = currentDistance + 1;
+        queue.push({ gx, gy, index });
+      }
+    }
+  }
+
+  function navigationWaypoint(body) {
+    if (!navField) return null;
+    const field = navField;
+    const cell = findNearestNavigationCell(field, body.x, body.y);
+    if (!cell) return null;
+    let best = cell;
+    let bestDistance = field.distances[cell.index];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const gx = cell.gx + dx;
+      const gy = cell.gy + dy;
+      if (gx < 0 || gy < 0 || gx >= field.columns || gy >= field.rows) continue;
+      const index = gy * field.columns + gx;
+      const distance = field.distances[index];
+      if (distance >= 0 && (bestDistance < 0 || distance < bestDistance)) {
+        best = { gx, gy, index };
+        bestDistance = distance;
+      }
+    }
+    if (best.index === cell.index || bestDistance < 0) return null;
+    return {
+      x: field.origin + best.gx * field.step,
+      y: field.origin + best.gy * field.step,
+    };
+  }
+
+  function spawnEnemy(typeId) {
+    const spec = ENEMY_TYPES[typeId];
+    if (!spec || enemySpawns.length === 0) return;
+    const spawn = enemySpawns[(game.killed + enemies.length * 2 + Math.floor(elapsed * 10)) % enemySpawns.length];
+    const offsets = [[0, 0], [56, 0], [-56, 0], [0, 56], [0, -56], [52, 52], [-52, 52]];
+    let position = { x: spawn.x, y: spawn.y };
+    for (const [offsetX, offsetY] of offsets) {
+      const candidate = { x: spawn.x + offsetX, y: spawn.y + offsetY };
+      if (!isCircleBlocked(candidate.x, candidate.y, 39)) {
+        position = candidate;
+        break;
+      }
+    }
+    const heading = angleTo(position.x, position.y, player.x, player.y);
+    enemies.push({
+      id: `hostile-${Math.floor(elapsed * 1000)}-${enemies.length}`,
+      type: typeId,
+      tankId: spec.tankId,
+      x: position.x,
+      y: position.y,
+      vx: 0,
+      vy: 0,
+      heading,
+      turretHeading: heading,
+      radius: typeId === "heavy" ? 45 : 40,
+      health: spec.health,
+      maxHealth: spec.health,
+      speed: spec.speed,
+      armor: spec.armor,
+      damage: spec.damage,
+      fireRate: spec.fireRate,
+      range: spec.range,
+      reward: spec.reward,
+      color: spec.color,
+      nextFireAt: elapsed + 1 + Math.random() * 1.2,
+      strafeSign: Math.random() > 0.5 ? 1 : -1,
+      dead: false,
+    });
+    burst(position.x, position.y, ["#e7aa60", "#80533b", "#3e463b"], 8, 85);
+  }
+
+  function fireEnemyShell(enemy) {
+    const direction = directionFromAngle(enemy.turretHeading);
+    spawnBullet({
+      x: enemy.x + direction.x * 47,
+      y: enemy.y + direction.y * 47,
+      vx: direction.x * 520,
+      vy: direction.y * 520,
+      damage: enemy.damage,
+      team: "enemy",
+      bounces: 0,
+      color: "#efad64",
+      trail: "#d66d4b",
+      life: 1.85,
+    });
+    enemy.nextFireAt = elapsed + 1 / enemy.fireRate + Math.random() * 0.18;
+    burst(enemy.x + direction.x * 42, enemy.y + direction.y * 42, ["#ffe5a0", "#df8747"], 4, 58);
+  }
+
+  function updateEnemies(delta) {
+    if (elapsed >= game.nextFlowRefresh) {
+      rebuildNavigationField();
+      game.nextFlowRefresh = elapsed + 0.72;
+    }
+
+    for (const enemy of enemies) {
+      if (enemy.dead) continue;
+      const dx = player.x - enemy.x;
+      const dy = player.y - enemy.y;
+      const distance = Math.hypot(dx, dy) || 1;
+      const targetAngle = angleTo(enemy.x, enemy.y, player.x, player.y);
+      enemy.turretHeading = easeAngle(enemy.turretHeading, targetAngle, 4.5, delta);
+      const wallInSight = castSegment({ x: enemy.x, y: enemy.y }, { x: player.x, y: player.y }, 5);
+      const canSeePlayer = !wallInSight;
+
+      let steerX = 0;
+      let steerY = 0;
+      if (canSeePlayer && distance < enemy.range * 0.86) {
+        // Enemies orbit gently at effective range instead of ramming the tank.
+        const toward = distance < 255 ? -0.34 : 0.13;
+        steerX = (dx / distance) * toward + (-dy / distance) * 0.62 * enemy.strafeSign;
+        steerY = (dy / distance) * toward + (dx / distance) * 0.62 * enemy.strafeSign;
+      } else {
+        const waypoint = navigationWaypoint(enemy);
+        const targetX = waypoint ? waypoint.x : player.x;
+        const targetY = waypoint ? waypoint.y : player.y;
+        const routeX = targetX - enemy.x;
+        const routeY = targetY - enemy.y;
+        const routeLength = Math.hypot(routeX, routeY) || 1;
+        steerX = routeX / routeLength;
+        steerY = routeY / routeLength;
+      }
+
+      const steerLength = Math.hypot(steerX, steerY) || 1;
+      steerX /= steerLength;
+      steerY /= steerLength;
+      const desiredHeading = Math.atan2(steerX, -steerY);
+      enemy.heading = easeAngle(enemy.heading, desiredHeading, 3.8, delta);
+      const beforeX = enemy.x;
+      const beforeY = enemy.y;
+      moveCircle(enemy, steerX * enemy.speed * delta, steerY * enemy.speed * delta);
+      if (Math.hypot(enemy.x - beforeX, enemy.y - beforeY) < 1.2) enemy.strafeSign *= -1;
+
+      if (canSeePlayer && distance <= enemy.range && elapsed >= enemy.nextFireAt) fireEnemyShell(enemy);
+    }
+
+    resolveTankCrowding();
+    for (let index = enemies.length - 1; index >= 0; index -= 1) {
+      if (enemies[index].dead) enemies.splice(index, 1);
+    }
+  }
+
+  function resolveTankCrowding() {
+    const units = [player, ...enemies.filter((enemy) => !enemy.dead)];
+    for (let i = 0; i < units.length; i += 1) {
+      for (let j = i + 1; j < units.length; j += 1) {
+        const first = units[i];
+        const second = units[j];
+        let dx = second.x - first.x;
+        let dy = second.y - first.y;
+        let distance = Math.hypot(dx, dy);
+        const minimum = first.radius + second.radius - 4;
+        if (distance >= minimum) continue;
+        if (distance < 0.001) {
+          dx = 1;
+          dy = 0;
+          distance = 1;
+        }
+        const push = (minimum - distance) / 2;
+        const nx = dx / distance;
+        const ny = dy / distance;
+        first.x -= nx * push;
+        first.y -= ny * push;
+        second.x += nx * push;
+        second.y += ny * push;
+      }
+    }
+    units.forEach((unit) => moveCircle(unit, 0, 0));
+  }
+
+  function queueWave(index) {
+    if (!game.level) return;
+    const wave = game.level.waves[index];
+    game.spawnQueue = [];
+    wave.forEach((group) => {
+      for (let count = 0; count < group.count; count += 1) game.spawnQueue.push(group.type);
+    });
+    // Alternate the group order to distribute types and spawns across the map.
+    game.spawnQueue.sort(() => Math.random() - 0.5);
+    game.spawnTimer = 0.65;
+    game.waveIndex = index;
+    showToast(`WAVE ${index + 1} DEPLOYING — HOLD THE RANGE`, "⚑");
+    refreshHud();
+  }
+
+  function finishMission(victory) {
+    if (game.state !== "playing" || game.completed) return;
+    game.completed = true;
+    bullets.length = 0;
+    const level = game.level;
+    let award = game.earnedCredits;
+    if (victory) {
+      award += level.reward;
+      profile.coins += level.reward;
+      if (!profile.completed.includes(level.id)) profile.completed.push(level.id);
+      profile.unlockedLevel = Math.max(profile.unlockedLevel, Math.min(LEVELS.length, currentLevelIndex + 2));
+      saveProfile();
+      showResult({
+        victory: true,
+        title: "MISSION SECURED",
+        copy: `${level.title} is clear. The next operation has been added to the command board.`,
+        credits: award,
+      });
+    } else {
+      saveProfile();
+      showResult({
+        victory: false,
+        title: "TANK DISABLED",
+        copy: "Your crew pulled clear. Spend credits in the bay, then return to the operation.",
+        credits: award,
+      });
+    }
+  }
+
+  function updateMission(delta) {
+    if (!game.level || game.completed) return;
+    if (game.waveDelay > 0) {
+      game.waveDelay -= delta;
+      if (game.waveDelay <= 0) queueWave(game.waveIndex);
+      return;
+    }
+
+    if (game.spawnQueue.length > 0) {
+      game.spawnTimer -= delta;
+      if (game.spawnTimer <= 0) {
+        spawnEnemy(game.spawnQueue.shift());
+        game.spawnTimer = 0.62;
+      }
+      return;
+    }
+
+    if (enemies.length === 0) {
+      const lastWave = game.level.waves.length - 1;
+      if (game.waveIndex >= lastWave) {
+        finishMission(true);
+      } else {
+        const fieldRepair = Math.max(12, Math.round(player.maxHealth * 0.16));
+        player.health = Math.min(player.maxHealth, player.health + fieldRepair);
+        addFloatingText(player.x, player.y - 56, `FIELD PATCH +${fieldRepair}`, "#b9e681");
+        game.waveIndex += 1;
+        game.waveDelay = 2.35;
+        showToast(`RANGE CLEAR — FIELD PATCH APPLIED · WAVE ${game.waveIndex + 1} INBOUND`, "⌁");
+        refreshHud();
+      }
+    }
+  }
+
+  function updateParticles(delta) {
+    for (let index = particles.length - 1; index >= 0; index -= 1) {
+      const particle = particles[index];
+      particle.life -= delta;
+      if (particle.life <= 0) {
+        particles.splice(index, 1);
+        continue;
+      }
+      particle.x += particle.vx * delta;
+      particle.y += particle.vy * delta;
+      particle.vx *= Math.pow(particle.drag, delta * 60);
+      particle.vy *= Math.pow(particle.drag, delta * 60);
+    }
+    for (let index = floatingTexts.length - 1; index >= 0; index -= 1) {
+      const text = floatingTexts[index];
+      text.life -= delta;
+      if (text.life <= 0) {
+        floatingTexts.splice(index, 1);
+        continue;
+      }
+      text.y += text.vy * delta;
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Rendering: terrain first, then low dressing, then hard cover and tank.
@@ -795,6 +1808,16 @@
         const variant = hash2(tx, ty, type * 97) % options.length;
         ctx.drawImage(options[variant], tx * TILE, ty * TILE);
       }
+    }
+
+    // Level palettes reuse the same authored tiles but shift their battlefield
+    // character: dusty orange depot soil and cool fortified-citadel ground.
+    if (currentTheme === "cinder") {
+      ctx.fillStyle = "rgba(185, 91, 39, 0.18)";
+      ctx.fillRect(camera.x - TILE, camera.y - TILE, viewWidth() + TILE * 2, viewHeight() + TILE * 2);
+    } else if (currentTheme === "citadel") {
+      ctx.fillStyle = "rgba(50, 91, 101, 0.16)";
+      ctx.fillRect(camera.x - TILE, camera.y - TILE, viewWidth() + TILE * 2, viewHeight() + TILE * 2);
     }
   }
 
@@ -1191,64 +2214,129 @@
     }
   }
 
-  function drawFallbackTank() {
+  function drawFallbackTank(unit, team) {
+    const base = team === "player" ? "#73865d" : "#916052";
+    const light = team === "player" ? "#aab77d" : "#c98968";
     ctx.save();
-    ctx.translate(player.x, player.y);
-    ctx.rotate(player.heading);
+    ctx.translate(unit.x, unit.y);
+    ctx.rotate(unit.heading);
     ctx.fillStyle = "rgba(25, 30, 26, 0.52)";
     ctx.fillRect(-22, -29, 44, 67);
-    ctx.fillStyle = "#607657";
-    ctx.fillRect(-19, -34, 38, 62);
-    ctx.fillStyle = "#99a472";
-    ctx.fillRect(-12, -28, 24, 47);
-    ctx.fillStyle = "#2c3930";
+    ctx.fillStyle = "#29362e";
     ctx.fillRect(-23, -20, 7, 42);
     ctx.fillRect(16, -20, 7, 42);
+    ctx.fillStyle = base;
+    ctx.fillRect(-19, -34, 38, 62);
+    ctx.fillStyle = light;
+    ctx.fillRect(-12, -28, 24, 47);
     ctx.restore();
 
     ctx.save();
-    ctx.translate(player.x, player.y);
-    ctx.rotate(player.turretHeading);
-    ctx.fillStyle = "#323d32";
+    ctx.translate(unit.x, unit.y);
+    ctx.rotate(unit.turretHeading);
+    ctx.fillStyle = "#29362e";
     ctx.fillRect(-4, -42, 8, 35);
-    fillPixelCircle(ctx, 0, 2, 15, "#84946b");
+    fillPixelCircle(ctx, 0, 2, 15, light);
     ctx.restore();
   }
 
-  function drawTank() {
+  function drawUnitHealth(unit, team) {
+    if (team !== "enemy" || unit.dead) return;
+    const ratio = clamp(unit.health / unit.maxHealth, 0, 1);
+    const width = unit.type === "heavy" ? 42 : 34;
+    const y = unit.y - unit.radius - 18;
+    ctx.fillStyle = "rgba(20, 28, 23, 0.77)";
+    ctx.fillRect(unit.x - width / 2 - 1, y - 1, width + 2, 5);
+    ctx.fillStyle = "#713e39";
+    ctx.fillRect(unit.x - width / 2, y, width, 3);
+    ctx.fillStyle = unit.type === "heavy" ? "#e0a654" : "#d9755b";
+    ctx.fillRect(unit.x - width / 2, y, width * ratio, 3);
+  }
+
+  function drawTankUnit(unit, team) {
+    const isPlayer = team === "player";
+    const shadowScale = unit.type === "heavy" || unit.tankId === "tiger" ? 35 : 30;
     ctx.save();
-    ctx.translate(player.x, player.y + 16);
-    ctx.fillStyle = "rgba(20, 27, 22, 0.42)";
+    ctx.translate(unit.x, unit.y + 16);
+    ctx.fillStyle = "rgba(17, 24, 19, 0.46)";
     ctx.beginPath();
-    ctx.ellipse(0, 0, 29, 11, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, shadowScale, 11, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
-    if (!tankArt.hullReady || !tankArt.turretReady) {
-      drawFallbackTank();
-      return;
+    const art = tankArt[unit.tankId] || tankArt.panther;
+    const drawSize = unit.type === "heavy" || unit.tankId === "tiger" ? 192 : 175;
+    const loaded = art && art.hull.ready && art.turret.ready;
+    const flashing = isPlayer && elapsed < player.invulnerableUntil && Math.floor(elapsed * 18) % 2 === 0;
+    if (loaded && !flashing) {
+      ctx.save();
+      ctx.translate(Math.round(unit.x), Math.round(unit.y));
+      ctx.rotate(unit.heading);
+      ctx.drawImage(art.hull.image, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+      ctx.restore();
+      ctx.save();
+      ctx.translate(Math.round(unit.x), Math.round(unit.y));
+      ctx.rotate(unit.turretHeading);
+      ctx.drawImage(art.turret.image, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+      ctx.restore();
+    } else {
+      drawFallbackTank(unit, team);
     }
 
-    const drawSize = 175;
     ctx.save();
-    ctx.translate(Math.round(player.x), Math.round(player.y));
-    ctx.rotate(player.heading);
-    ctx.drawImage(tankArt.hull, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+    ctx.translate(unit.x, unit.y);
+    ctx.rotate(unit.heading);
+    if (isPlayer) {
+      ctx.fillStyle = "#6bc9dc";
+      ctx.fillRect(-3, 22, 6, 7);
+    } else {
+      ctx.fillStyle = unit.color || "#d77c5c";
+      ctx.fillRect(-3, 22, 6, 7);
+    }
     ctx.restore();
+    drawUnitHealth(unit, team);
+  }
 
-    ctx.save();
-    ctx.translate(Math.round(player.x), Math.round(player.y));
-    ctx.rotate(player.turretHeading);
-    ctx.drawImage(tankArt.turret, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
-    ctx.restore();
+  function drawTank() {
+    drawTankUnit(player, "player");
+  }
 
-    // A small blue identification tab distinguishes the player without adding a
-    // combat UI or modifying the supplied tank artwork.
+  function drawProjectile(bullet) {
+    if (!isVisible(bullet.x - 8, bullet.y - 8, 16, 16, 8)) return;
+    const length = Math.hypot(bullet.vx, bullet.vy) || 1;
+    const tx = bullet.x - (bullet.vx / length) * 12;
+    const ty = bullet.y - (bullet.vy / length) * 12;
+    ctx.strokeStyle = bullet.trail || bullet.color;
+    ctx.globalAlpha = 0.45;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(bullet.x, bullet.y);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#fff3be";
+    ctx.fillRect(Math.round(bullet.x - 2), Math.round(bullet.y - 2), 5, 5);
+    ctx.fillStyle = bullet.color;
+    ctx.fillRect(Math.round(bullet.x - 1), Math.round(bullet.y - 1), 3, 3);
+  }
+
+  function drawCombatParticle(particle) {
+    if (!isVisible(particle.x - 8, particle.y - 8, 16, 16, 8)) return;
+    ctx.globalAlpha = clamp(particle.life / particle.maxLife, 0, 1);
+    ctx.fillStyle = particle.color;
+    ctx.fillRect(Math.round(particle.x), Math.round(particle.y), particle.size, particle.size);
+    ctx.globalAlpha = 1;
+  }
+
+  function drawFloatingText(text) {
+    if (!isVisible(text.x - 60, text.y - 16, 120, 32, 8)) return;
     ctx.save();
-    ctx.translate(player.x, player.y);
-    ctx.rotate(player.heading);
-    ctx.fillStyle = "#6bc9dc";
-    ctx.fillRect(-3, 22, 6, 7);
+    ctx.globalAlpha = clamp(text.life / text.maxLife, 0, 1);
+    ctx.fillStyle = "rgba(20, 27, 22, 0.85)";
+    ctx.font = "700 10px monospace";
+    ctx.fillText(text.text, Math.round(text.x) + 1, Math.round(text.y) + 1);
+    ctx.fillStyle = text.color;
+    ctx.fillText(text.text, Math.round(text.x), Math.round(text.y));
     ctx.restore();
   }
 
@@ -1263,21 +2351,25 @@
     enemySpawns.forEach((marker) => drawSpawnMarker(marker, false));
     decals.forEach(drawDecal);
 
-    // Sorting by the feet of objects lets the tank pass visually behind or in
-    // front of cover without breaking top-down readability.
+    // Sorting by object feet gives tanks readable depth around buildings and cover.
     const renderQueue = [];
     for (const item of scenery) {
-      if (isVisible(item.x, item.y, item.width, item.height)) {
-        renderQueue.push({ item, sortY: item.y + item.height });
-      }
+      if (isVisible(item.x, item.y, item.width, item.height)) renderQueue.push({ kind: "scenery", item, sortY: item.y + item.height });
     }
-    renderQueue.push({ item: null, sortY: player.y + 36 });
+    renderQueue.push({ kind: "player", item: player, sortY: player.y + 36 });
+    for (const enemy of enemies) {
+      if (!enemy.dead && isVisible(enemy.x - 64, enemy.y - 64, 128, 128)) renderQueue.push({ kind: "enemy", item: enemy, sortY: enemy.y + 36 });
+    }
     renderQueue.sort((a, b) => a.sortY - b.sortY);
     for (const entry of renderQueue) {
-      if (entry.item) drawObject(entry.item);
-      else drawTank();
+      if (entry.kind === "scenery") drawObject(entry.item);
+      else if (entry.kind === "player") drawTankUnit(entry.item, "player");
+      else drawTankUnit(entry.item, "enemy");
     }
 
+    bullets.forEach(drawProjectile);
+    particles.forEach(drawCombatParticle);
+    floatingTexts.forEach(drawFloatingText);
     ctx.restore();
   }
 
@@ -1386,6 +2478,8 @@
     } else {
       player.turretHeading = player.heading;
     }
+
+    tryPlayerFire();
   }
 
   function drawMiniStatic() {
@@ -1393,7 +2487,7 @@
     const c = miniStatic.getContext("2d");
     const sx = minimap.width / WORLD.width;
     const sy = minimap.height / WORLD.height;
-    c.fillStyle = "#5c7d42";
+    c.fillStyle = currentTheme === "cinder" ? "#806942" : currentTheme === "citadel" ? "#59726e" : "#5c7d42";
     c.fillRect(0, 0, minimap.width, minimap.height);
 
     c.lineCap = "round";
@@ -1443,6 +2537,11 @@
       miniCtx.arc(spawn.x * sx, spawn.y * sy, 3, 0, Math.PI * 2);
       miniCtx.stroke();
     });
+    enemies.forEach((enemy) => {
+      if (enemy.dead) return;
+      miniCtx.fillStyle = enemy.type === "heavy" ? "#f0a052" : "#df6e58";
+      miniCtx.fillRect(enemy.x * sx - 1, enemy.y * sy - 1, 3, 3);
+    });
 
     miniCtx.strokeStyle = "rgba(226, 234, 196, 0.58)";
     miniCtx.lineWidth = 1;
@@ -1455,22 +2554,377 @@
 
     const sectorX = player.x < WORLD.width / 3 ? "W" : player.x < WORLD.width * 2 / 3 ? "C" : "E";
     const sectorY = clamp(Math.floor(player.y / (WORLD.height / 5)) + 1, 1, 5);
-    sectorLabel.textContent = `SECTOR ${sectorX}-${sectorY}`;
+    const sector = `SECTOR ${sectorX}-${sectorY}`;
+    sectorLabel.textContent = sector;
+    if (ui.hudSector) ui.hudSector.textContent = sector;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Command UI, tank store, upgrades, campaign profile, and settings.
+  // ---------------------------------------------------------------------------
+
+  let toastTimer = 0;
+
+  function showToast(message, icon = "✓") {
+    if (!toast) return;
+    toast.innerHTML = `<span class="toast__badge">${icon}</span><span>${message}</span>`;
+    toast.classList.remove("is-hidden");
+    toast.classList.add("is-visible");
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(() => {
+      toast.classList.remove("is-visible");
+      toast.classList.add("is-hidden");
+    }, 2800);
+  }
+
+  function statLine(label, value, max, suffix = "") {
+    const percent = clamp((value / max) * 100, 8, 100);
+    return `<div class="stat-line"><span>${label}</span><i><b style="width:${percent}%"></b></i><strong>${value}${suffix}</strong></div>`;
+  }
+
+  function tankStatMarkup(tank, includeUpgrades = false) {
+    const health = tank.health + (includeUpgrades ? profile.upgrades.hull * 24 : 0);
+    const armor = tank.armor + (includeUpgrades ? profile.upgrades.armor : 0);
+    return [
+      statLine("HULL", health, 300),
+      statLine("SPEED", tank.speed, 285),
+      statLine("ARMOR", armor, 7),
+      statLine("CANNON", tank.damage, 31),
+    ].join("");
+  }
+
+  function updateCreditDisplays() {
+    currencyNodes.forEach((node) => { node.textContent = profile.coins; });
+    if (ui.hudCoins) ui.hudCoins.textContent = profile.coins;
+    const equipped = getTank(profile.selectedTank).name;
+    equippedNameNodes.forEach((node) => { node.textContent = equipped; });
+    if (ui.campaignProgress) ui.campaignProgress.textContent = `${String(Math.min(profile.unlockedLevel, LEVELS.length)).padStart(2, "0")} / ${String(LEVELS.length).padStart(2, "0")}`;
+  }
+
+  function renderMissionList() {
+    if (!ui.missionList) return;
+    ui.missionList.innerHTML = LEVELS.map((level, index) => {
+      const unlocked = profile.unlockedLevel >= index + 1;
+      const complete = profile.completed.includes(level.id);
+      const hostileCount = level.waves.reduce((total, wave) => total + wave.reduce((sum, group) => sum + group.count, 0), 0);
+      return `
+        <article class="mission-card ${unlocked ? "" : "is-locked"}" data-theme="${level.theme}">
+          <div class="mission-card__map"></div>
+          <div class="mission-card__body">
+            <span class="mission-card__number">OPERATION ${level.number} ${complete ? "// SECURED" : ""}</span>
+            <h3>${level.title}</h3>
+            <p>${unlocked ? level.description : "Complete the preceding operation to receive this deployment clearance."}</p>
+            <div class="mission-meta"><span>${level.waves.length} WAVES · ${hostileCount} HOSTILES</span><b>◆ ${level.reward}</b></div>
+            <button class="mission-launch" data-launch-level="${index}" type="button" ${unlocked ? "" : "disabled"}>${unlocked ? complete ? "REDEPLOY" : "BEGIN OPERATION" : "CLEARANCE LOCKED"}</button>
+          </div>
+        </article>`;
+    }).join("");
+    ui.missionList.querySelectorAll("[data-launch-level]").forEach((button) => {
+      button.addEventListener("click", () => startMission(Number(button.dataset.launchLevel)));
+    });
+  }
+
+  function renderTankBay() {
+    const equipped = getTank(profile.selectedTank);
+    if (ui.equippedDescription) ui.equippedDescription.textContent = equipped.description;
+    if (ui.equippedStats) ui.equippedStats.innerHTML = tankStatMarkup(equipped, true);
+    if (!ui.tankList) return;
+
+    ui.tankList.innerHTML = TANKS.map((tank) => {
+      const owned = profile.owned.includes(tank.id);
+      const selected = tank.id === profile.selectedTank;
+      let action = "";
+      if (selected) action = "EQUIPPED";
+      else if (owned) action = "EQUIP TANK";
+      else if (profile.coins >= tank.price) action = `BUY · ◆ ${tank.price}`;
+      else action = `NEED ◆ ${tank.price}`;
+      const dataAttribute = owned ? `data-equip-tank="${tank.id}"` : `data-buy-tank="${tank.id}"`;
+      const disabled = selected || (!owned && profile.coins < tank.price) ? "disabled" : "";
+      return `
+        <article class="tank-card ${selected ? "is-equipped" : ""} ${owned ? "" : "is-locked"}">
+          <div class="tank-card__silhouette" style="background-image:url('${encodeURI(tank.hull)}')"></div>
+          <span class="tank-card__type">${tank.className}</span>
+          <h3>${tank.name}</h3>
+          <p>${tank.description}</p>
+          <div class="stat-list">${tankStatMarkup(tank)}</div>
+          <button class="tank-card__action" ${dataAttribute} type="button" ${disabled}>${action}</button>
+        </article>`;
+    }).join("");
+
+    ui.tankList.querySelectorAll("[data-buy-tank]").forEach((button) => {
+      button.addEventListener("click", () => buyTank(button.dataset.buyTank));
+    });
+    ui.tankList.querySelectorAll("[data-equip-tank]").forEach((button) => {
+      button.addEventListener("click", () => equipTank(button.dataset.equipTank));
+    });
+  }
+
+  function renderUpgrades() {
+    if (!ui.upgradeList) return;
+    ui.upgradeList.innerHTML = UPGRADES.map((upgrade) => {
+      const level = profile.upgrades[upgrade.id];
+      const isMax = level >= upgrade.levels;
+      const cost = upgrade.costs[level];
+      const affordable = !isMax && profile.coins >= cost;
+      const pips = Array.from({ length: upgrade.levels }, (_, index) => `<i class="${index < level ? "is-active" : ""}"></i>`).join("");
+      let label = "MAX FITTED";
+      if (!isMax) label = affordable ? `FIT · ◆ ${cost}` : `NEED ◆ ${cost}`;
+      return `
+        <article class="upgrade-card">
+          <div class="upgrade-card__icon">${upgrade.icon}</div>
+          <div class="upgrade-card__copy">
+            <h3>${upgrade.title}</h3>
+            <p>${upgrade.description}</p>
+            <span class="upgrade-card__effect">ACTIVE: ${upgrade.effect(level)}</span>
+            <div class="upgrade-level">${pips}</div>
+          </div>
+          <button class="upgrade-card__buy" data-buy-upgrade="${upgrade.id}" type="button" ${affordable ? "" : "disabled"}>${label}</button>
+        </article>`;
+    }).join("");
+    ui.upgradeList.querySelectorAll("[data-buy-upgrade]").forEach((button) => {
+      button.addEventListener("click", () => buyUpgrade(button.dataset.buyUpgrade));
+    });
+  }
+
+  function renderSettings() {
+    document.querySelectorAll("[data-setting]").forEach((button) => {
+      const enabled = Boolean(profile.settings[button.dataset.setting]);
+      button.classList.toggle("is-on", enabled);
+      button.setAttribute("aria-pressed", String(enabled));
+    });
+  }
+
+  function refreshHud() {
+    const level = game.level || LEVELS[currentLevelIndex];
+    if (!level) return;
+    const healthRatio = player.maxHealth > 0 ? player.health / player.maxHealth : 0;
+    if (ui.hudMission) ui.hudMission.textContent = `OPERATION // ${level.title}`;
+    if (ui.hudObjective) ui.hudObjective.textContent = game.waveDelay > 0 ? "NEXT WAVE INBOUND" : "ELIMINATE HOSTILES";
+    if (ui.hudTankName) ui.hudTankName.textContent = getTank(profile.selectedTank).name;
+    if (ui.hudHealthText) ui.hudHealthText.textContent = `${Math.ceil(player.health)} / ${player.maxHealth}`;
+    if (ui.hudHealthFill) {
+      ui.hudHealthFill.style.width = `${clamp(healthRatio * 100, 0, 100)}%`;
+      ui.hudHealthFill.classList.toggle("is-low", healthRatio < 0.32);
+    }
+    if (ui.hudArmorPips) {
+      const pips = Array.from({ length: 7 }, (_, index) => `<i class="${index < player.armor ? "is-active" : ""}"></i>`).join("");
+      if (ui.hudArmorPips.dataset.value !== pips) {
+        ui.hudArmorPips.dataset.value = pips;
+        ui.hudArmorPips.innerHTML = pips;
+      }
+    }
+    if (ui.hudWave) ui.hudWave.textContent = `WAVE ${Math.max(1, game.waveIndex + 1)} / ${level.waves.length}`;
+    if (ui.hudEnemies) {
+      const count = enemies.filter((enemy) => !enemy.dead).length + game.spawnQueue.length;
+      ui.hudEnemies.textContent = `${count} HOSTILE${count === 1 ? "" : "S"} REMAIN`;
+    }
+    updateCreditDisplays();
+  }
+
+  function refreshInterface() {
+    updateCreditDisplays();
+    refreshHud();
+    if (game.menuScreen === "missions") renderMissionList();
+    if (game.menuScreen === "hangar") renderTankBay();
+    if (game.menuScreen === "upgrades") renderUpgrades();
+    if (game.menuScreen === "settings") renderSettings();
+  }
+
+  function buyTank(id) {
+    const tank = getTank(id);
+    if (profile.owned.includes(tank.id)) return equipTank(tank.id);
+    if (profile.coins < tank.price) {
+      showToast(`NOT ENOUGH CREDITS FOR ${tank.name}`, "!");
+      return;
+    }
+    profile.coins -= tank.price;
+    profile.owned.push(tank.id);
+    profile.selectedTank = tank.id;
+    applySelectedTankStats(true);
+    saveProfile();
+    renderTankBay();
+    refreshInterface();
+    showToast(`${tank.name} PURCHASED AND EQUIPPED`, "◆");
+  }
+
+  function equipTank(id) {
+    if (!profile.owned.includes(id)) return;
+    profile.selectedTank = id;
+    applySelectedTankStats(true);
+    saveProfile();
+    renderTankBay();
+    refreshInterface();
+    showToast(`${getTank(id).name} EQUIPPED`, "✓");
+  }
+
+  function buyUpgrade(id) {
+    const upgrade = getUpgrade(id);
+    if (!upgrade) return;
+    const current = profile.upgrades[id];
+    if (current >= upgrade.levels) return;
+    const cost = upgrade.costs[current];
+    if (profile.coins < cost) {
+      showToast("NOT ENOUGH FIELD CREDITS", "!");
+      return;
+    }
+    profile.coins -= cost;
+    profile.upgrades[id] += 1;
+    applySelectedTankStats(game.state !== "playing");
+    saveProfile();
+    renderUpgrades();
+    refreshInterface();
+    showToast(`${upgrade.title} TIER ${profile.upgrades[id]} FITTED`, "↑");
+  }
+
+  function openScreen(name) {
+    game.menuScreen = name;
+    game.state = "menu";
+    screens.forEach((screen) => screen.classList.toggle("is-hidden", screen.dataset.screen !== name));
+    if (ui.menuLayer) ui.menuLayer.classList.remove("is-hidden");
+    if (ui.hud) ui.hud.classList.add("is-hidden");
+    if (ui.combatHelp) ui.combatHelp.classList.add("is-hidden");
+    input.clear();
+    pointer.down = false;
+    if (name === "missions") renderMissionList();
+    if (name === "hangar") renderTankBay();
+    if (name === "upgrades") renderUpgrades();
+    if (name === "settings") renderSettings();
+    updateCreditDisplays();
+  }
+
+  function startMission(index) {
+    if (profile.unlockedLevel < index + 1) {
+      showToast("COMPLETE THE PRIOR OPERATION FIRST", "!");
+      return;
+    }
+    enemies.length = 0;
+    bullets.length = 0;
+    particles.length = 0;
+    floatingTexts.length = 0;
+    const level = loadLevel(index);
+    game.state = "playing";
+    game.menuScreen = "";
+    game.level = level;
+    game.waveIndex = 0;
+    game.waveDelay = 1.35;
+    game.spawnQueue = [];
+    game.spawnTimer = 0;
+    game.killed = 0;
+    game.earnedCredits = 0;
+    game.completed = false;
+    game.nextFlowRefresh = 0;
+    game.lastResult = null;
+    screenShake = 0;
+    pointer.down = false;
+    if (ui.menuLayer) ui.menuLayer.classList.add("is-hidden");
+    if (ui.hud) ui.hud.classList.remove("is-hidden");
+    if (ui.combatHelp) ui.combatHelp.classList.remove("is-hidden");
+    screens.forEach((screen) => screen.classList.add("is-hidden"));
+    refreshHud();
+    showToast(`OPERATION ${level.number} STARTED — ELIMINATE ALL HOSTILES`, "⚑");
+  }
+
+  function returnToCommand() {
+    enemies.length = 0;
+    bullets.length = 0;
+    particles.length = 0;
+    floatingTexts.length = 0;
+    loadLevel(currentLevelIndex);
+    game.level = null;
+    game.completed = false;
+    openScreen("main");
+    showToast("RETURNED TO COMMAND", "⌂");
+  }
+
+  function showResult(result) {
+    game.state = "result";
+    game.lastResult = result;
+    if (ui.menuLayer) ui.menuLayer.classList.remove("is-hidden");
+    if (ui.hud) ui.hud.classList.add("is-hidden");
+    if (ui.combatHelp) ui.combatHelp.classList.add("is-hidden");
+    screens.forEach((screen) => screen.classList.toggle("is-hidden", screen.dataset.screen !== "results"));
+    if (ui.resultKicker) ui.resultKicker.textContent = result.victory ? "MISSION COMPLETE" : "CREW RECOVERY";
+    if (ui.resultTitle) ui.resultTitle.textContent = result.title;
+    if (ui.resultCopy) ui.resultCopy.textContent = result.copy;
+    if (ui.resultCredits) ui.resultCredits.textContent = result.credits;
+    if (ui.resultPrimary) {
+      const hasNext = result.victory && currentLevelIndex < LEVELS.length - 1 && profile.unlockedLevel >= currentLevelIndex + 2;
+      ui.resultPrimary.innerHTML = `<span class="command-button__key">${hasNext ? "→" : "⌂"}</span><span>${hasNext ? "NEXT OPERATION" : "COMMAND BOARD"}</span><b>→</b>`;
+      ui.resultPrimary.onclick = () => hasNext ? startMission(currentLevelIndex + 1) : returnToCommand();
+    }
+    if (ui.resultSecondary) {
+      ui.resultSecondary.innerHTML = `<span class="command-button__key">↻</span><span>RETRY MISSION</span><b>→</b>`;
+      ui.resultSecondary.onclick = () => startMission(currentLevelIndex);
+    }
+    refreshInterface();
+  }
+
+  function toggleSetting(id) {
+    profile.settings[id] = !profile.settings[id];
+    saveProfile();
+    renderSettings();
+    showToast(`${id === "screenShake" ? "IMPACT SHAKE" : id === "reducedEffects" ? "REDUCED EFFECTS" : "HOLD TO FIRE"} ${profile.settings[id] ? "ON" : "OFF"}`, "⚙");
+  }
+
+  function resetCampaignProfile() {
+    if (typeof window.confirm === "function" && !window.confirm("Reset credits, tanks, upgrades, and campaign progress?")) return;
+    profile.coins = 240;
+    profile.owned = ["panther"];
+    profile.selectedTank = "panther";
+    profile.unlockedLevel = 1;
+    profile.completed = [];
+    profile.upgrades = { volley: 1, bounce: 0, armor: 0, hull: 0 };
+    profile.settings = { screenShake: true, reducedEffects: false, autoFire: true };
+    applySelectedTankStats(true);
+    saveProfile();
+    renderSettings();
+    refreshInterface();
+    showToast("CAMPAIGN PROFILE RESET", "↺");
+  }
+
+  function bindInterface() {
+    document.querySelectorAll("[data-open-screen]").forEach((button) => {
+      button.addEventListener("click", () => openScreen(button.dataset.openScreen));
+    });
+    document.querySelectorAll("[data-setting]").forEach((button) => {
+      button.addEventListener("click", () => toggleSetting(button.dataset.setting));
+    });
+    if (ui.pauseButton) ui.pauseButton.addEventListener("click", returnToCommand);
+    if (ui.resetProfile) ui.resetProfile.addEventListener("click", resetCampaignProfile);
   }
 
   function update(delta) {
-    updatePlayer(delta);
-    updateCamera(delta);
-    updateMinimap();
+    updateParticles(delta);
+    if (game.state === "playing") {
+      updatePlayer(delta);
+      updateBullets(delta);
+      updateEnemies(delta);
+      updateMission(delta);
+      updateCamera(delta);
+      updateMinimap();
+      refreshHud();
+    } else {
+      updateCamera(delta);
+      updateMinimap();
+    }
+    screenShake *= Math.pow(0.001, delta);
+    if (screenShake < 0.08) screenShake = 0;
   }
 
   function render() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = "#5d823f";
+    ctx.fillStyle = currentTheme === "cinder" ? "#7d7047" : currentTheme === "citadel" ? "#5d776d" : "#5d823f";
     ctx.fillRect(0, 0, camera.width, camera.height);
-    drawWorld();
-    drawCursorReadout();
+    if (game.state === "playing" && screenShake > 0 && profile.settings.screenShake) {
+      ctx.save();
+      ctx.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);
+      drawWorld();
+      ctx.restore();
+    } else {
+      drawWorld();
+    }
+    if (game.state === "playing") drawCursorReadout();
   }
 
   function loop(now) {
@@ -1483,8 +2937,11 @@
   }
 
   window.addEventListener("keydown", (event) => {
-    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(event.code)) {
-      event.preventDefault();
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(event.code)) event.preventDefault();
+    if (event.code === "Escape") {
+      if (game.state === "playing") returnToCommand();
+      else if (game.state === "menu") openScreen("main");
+      return;
     }
     input.add(event.code);
   });
@@ -1493,7 +2950,10 @@
     input.delete(event.code);
   });
 
-  window.addEventListener("blur", () => input.clear());
+  window.addEventListener("blur", () => {
+    input.clear();
+    pointer.down = false;
+  });
 
   canvas.addEventListener("pointermove", (event) => {
     pointer.x = event.clientX;
@@ -1501,15 +2961,43 @@
     pointer.seen = true;
   });
 
+  canvas.addEventListener("pointerdown", (event) => {
+    if (game.state !== "playing") return;
+    pointer.x = event.clientX;
+    pointer.y = event.clientY;
+    pointer.seen = true;
+    pointer.down = true;
+    pointer.justPressed = true;
+    event.preventDefault();
+  });
+
+  window.addEventListener("pointerup", () => {
+    pointer.down = false;
+  });
+
   canvas.addEventListener("pointerleave", () => {
     pointer.seen = false;
   });
 
+  canvas.addEventListener("contextmenu", (event) => event.preventDefault());
   window.addEventListener("resize", resize);
+
   resize();
+  bindInterface();
+  // A narrow test hook keeps the automated navigation/combat smoke test free of
+  // browser-only UI dependencies; it is never created in normal play.
+  if (window.__IRONCLAD_TEST__) {
+    window.__IRONCLAD_TEST_API__ = {
+      LEVELS, profile, game, enemies, bullets, loadLevel, startMission, updateMission,
+      updateEnemies, updateBullets, applySelectedTankStats, buyTank, equipTank,
+      buyUpgrade, toggleSetting, returnToCommand, player, firePlayerVolley,
+    };
+  }
+  loadLevel(0);
   drawMiniStatic();
   updateMinimap();
+  openScreen("main");
+  refreshInterface();
   requestAnimationFrame(loop);
 
-  window.setTimeout(() => toast.classList.add("is-hidden"), 4400);
 })();
