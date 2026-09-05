@@ -132,7 +132,7 @@ class Game {
       if (t.dead) continue; if (t === b.owner && b.age < 0.3) continue; if (t.isBoss && t.introT > 0) continue;
       const rr = t.radius + b.r; if (Math.abs(b.x - t.x) > rr || Math.abs(b.y - t.y) > rr) continue; if ((b.x - t.x) ** 2 + (b.y - t.y) ** 2 > rr * rr) continue;
       // hit!
-      let dmg = b.dmg; if (b.bounced && b.owner.isPlayer) { dmg *= 1.25; this.floatText(b.x, b.y - 20, 'RICOCHET!', '#ffd166', 0.9); }
+      let dmg = b.dmg; if (t.isBoss && b.owner.bossDmg) dmg *= b.owner.bossDmg; if (b.bounced && b.owner.isPlayer) { dmg *= 1.25; this.floatText(b.x, b.y - 20, 'RICOCHET!', '#ffd166', 0.9); }
       if (b.owner.isPlayer) this.player.shotsHit++;
       t.takeDamage(dmg, b.owner); this.impact(b.x, b.y, 'A', b.big ? 1.2 : 0.8); this.puffColored(b.x, b.y, b.color);
       // boss self-hit? bounce shells of the boss can hit enemies too (fun!) - handled: player bullets hit enemies only.
@@ -170,14 +170,14 @@ class Game {
     for (let i = 0; i < C.n; i++) {
       const c = C.items[i]; c.life -= dt; c.t += dt; c.frame += dt * 10; if (c.life <= 0) { C.release(i); i--; continue; }
       if (c.z > 0 || c.vz > 0) { c.vz -= 700 * dt; c.z += c.vz * dt; if (c.z < 0) { c.z = 0; c.vz = -c.vz * 0.4; if (Math.abs(c.vz) < 40) c.vz = 0; } }
-      const d = dist(c.x, c.y, P.x, P.y); const magR = 130 + this.save.up.speed * 10;
+      const d = dist(c.x, c.y, P.x, P.y); const magR = (130 + this.save.up.speed * 10) * (P.magnet || 1);
       if ((d < magR || c.magnet) && !P.dead) { const sp = clamp(500 - d * 1.2, 220, 700) * (c.magnet ? 1.6 : 1); c.vx = (P.x - c.x) / d * sp; c.vy = (P.y - c.y) / d * sp; c.z = Math.max(0, c.z - 300 * dt); }
       else { c.vx *= 1 - 4 * dt; c.vy *= 1 - 4 * dt; }
       const nx = c.x + c.vx * dt, ny = c.y + c.vy * dt; if (!this.map.circleVsWalls(nx, ny, 6)) { c.x = nx; c.y = ny; } else { c.vx = -c.vx * 0.5; c.vy = -c.vy * 0.5; }
       if (d < P.radius + 8 && !P.dead) { this.collectCoin(c); C.release(i); i--; }
     }
   }
-  collectCoin(c) { this.coinsEarned += c.value; this.save.coins += c.value; this.app.coinPop(); Audio_.play('coin'); this.floatText(this.player.x + rand(-14, 14), this.player.y - 34, '+' + c.value, '#ffd166', 0.7, true); for (let i = 0; i < 3; i++) this.spark(c.x, c.y, '#ffd166'); }
+  collectCoin(c) { const v = Math.max(1, Math.round(c.value * (this.player.coinMult || 1))); this.coinsEarned += v; this.save.coins += v; this.app.coinPop(); Audio_.play('coin'); this.floatText(this.player.x + rand(-14, 14), this.player.y - 34, '+' + v, '#ffd166', 0.7, true); for (let i = 0; i < 3; i++) this.spark(c.x, c.y, '#ffd166'); }
   /* ---------- effects ---------- */
   smoke(x, y, alpha, size) { if (this.particles.n > 500) return; const p = this.particles.get(); p.type = 'smoke'; p.x = x; p.y = y; p.vx = rand(-12, 12); p.vy = rand(-20, -6); p.life = p.maxLife = rand(0.5, 0.9); p.size = 5 * size; p.alpha = alpha * 0.5; p.color = null; p.grow = 14; }
   puff(x, y) { for (let i = 0; i < 3; i++) this.smoke(x, y, 0.5, 0.6); }

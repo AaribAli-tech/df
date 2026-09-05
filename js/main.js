@@ -3,12 +3,12 @@
    App: screens, HUD, shops, save/load, main loop, menu background
    ============================================================ */
 const SAVE_KEY = 'ironRicochet.save.v1';
-const defaultSave = () => ({ coins: 0, up: { shot: 0, bounce: 0, health: 0, armor: 0, damage: 0, speed: 0, fireRate: 0 }, petUnlocked: false, pet: { shot: 0, damage: 0, fireRate: 0, health: 0, speed: 0 }, maxLevel: 0, settings: { sfx: 0.8, music: 0.5, shake: true, lowFx: false }, stats: { kills: 0, coinsTotal: 0, bestLevel: 0 } });
+const defaultSave = () => ({ coins: 0, up: { shot: 0, bounce: 0, health: 0, armor: 0, damage: 0, speed: 0, fireRate: 0 }, tank: 't34', ownedTanks: ['t34'], petUnlocked: false, pet: { shot: 0, damage: 0, fireRate: 0, health: 0, speed: 0 }, petTank: 'stuart', ownedPetTanks: ['stuart'], maxLevel: 0, settings: { sfx: 0.8, music: 0.5, shake: true, lowFx: false }, stats: { kills: 0, coinsTotal: 0, bestLevel: 0 } });
 
 const App = {
   init() {
     const raw = localStorage.getItem(SAVE_KEY); this.save = defaultSave();
-    if (raw) { try { const s = JSON.parse(raw); this.save = Object.assign(this.save, s); this.save.up = Object.assign(defaultSave().up, s.up || {}); this.save.pet = Object.assign(defaultSave().pet, s.pet || {}); this.save.settings = Object.assign(defaultSave().settings, s.settings || {}); this.save.stats = Object.assign(defaultSave().stats, s.stats || {}); } catch (e) { } }
+    if (raw) { try { const s = JSON.parse(raw); this.save = Object.assign(this.save, s); this.save.up = Object.assign(defaultSave().up, s.up || {}); this.save.pet = Object.assign(defaultSave().pet, s.pet || {}); this.save.settings = Object.assign(defaultSave().settings, s.settings || {}); this.save.stats = Object.assign(defaultSave().stats, s.stats || {}); if (!Array.isArray(this.save.ownedTanks)) this.save.ownedTanks = ['t34']; if (!Array.isArray(this.save.ownedPetTanks)) this.save.ownedPetTanks = ['stuart']; if (!TANK_BY_ID[this.save.tank]) this.save.tank = 't34'; if (!TANK_BY_ID[this.save.petTank]) this.save.petTank = 'stuart'; } catch (e) { } }
     this.canvas = document.getElementById('game'); this.$ = (id) => document.getElementById(id);
     this.game = new Game(this); this.screen = 'loading'; this.selectedLevel = this.save.maxLevel;
     Input.init(this.canvas); Input.onKey = (c) => this.onKey(c);
@@ -29,9 +29,10 @@ const App = {
   showScreen(name) {
     this.screen = name; document.querySelectorAll('.screen').forEach(s => s.classList.toggle('show', s.id === 'scr-' + name));
     this.$('hud').classList.toggle('show', name === 'play' || name === 'pause'); this.$('touchLayer').classList.toggle('show', name === 'play');
-    if (name === 'menu') { if (Audio_.ctx && Audio_.musicKind !== 'menu') Audio_.startMusic('menu'); this.$('menuCoins').textContent = this.save.coins; this.$('menuBest').textContent = 'BEST LEVEL: ' + (this.save.stats.bestLevel || 0); this.game.state = 'idle'; }
+    if (name === 'menu') { if (Audio_.ctx && Audio_.musicKind !== 'menu') Audio_.startMusic('menu'); this.$('menuCoins').textContent = this.save.coins; this.$('menuBest').textContent = 'BEST LEVEL: ' + (this.save.stats.bestLevel || 0); this.$('menuTank').textContent = 'TANK: ' + (TANK_BY_ID[this.save.tank] || TANK_BY_ID.t34).name; this.game.state = 'idle'; }
     if (name === 'levels') this.renderLevels();
     if (name === 'shop') this.renderShop();
+    if (name === 'garage') this.renderGarage();
     if (name === 'pet') this.renderPet();
     if (name === 'settings') this.renderSettings();
     this.updateCoinLabels();
@@ -42,6 +43,9 @@ const App = {
     $('btnPlay').onclick = () => this.showScreen('levels');
     $('btnUpgrades').onclick = () => { this.backTo = 'menu'; this.showScreen('shop'); };
     $('btnPet').onclick = () => { this.backTo = 'menu'; this.showScreen('pet'); };
+    $('btnGarage').onclick = () => { this.backTo = 'menu'; this.showScreen('garage'); };
+    $('btnWinGarage').onclick = () => { this.backTo = 'win'; this.showScreen('garage'); };
+    $('btnLoseGarage').onclick = () => { this.backTo = 'lose'; this.showScreen('garage'); };
     $('btnSettings').onclick = () => { this.backTo = 'menu'; this.showScreen('settings'); };
     document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => this.showScreen(this.backTo || 'menu'));
     $('btnStart').onclick = () => this.startLevel(this.selectedLevel);
@@ -101,17 +105,69 @@ const App = {
     const wrap = this.$('shopCards'); wrap.innerHTML = ''; this.updateCoinLabels();
     for (const u of UPGRADES) { const lvl = this.save.up[u.id]; const maxed = lvl >= upgradeMax(u); const cost = maxed ? 0 : upgradeCost(u, lvl); wrap.appendChild(this.card(u, lvl, cost, this.save.coins >= cost, () => { this.save.coins -= cost; this.save.up[u.id]++; this.persist(); this.renderShop(); }, maxed)); }
     // live preview of the player's current build
-    const s = this.save.up; this.$('shopSummary').innerHTML = `<span>♥ ${100 + 20 * s.health} HP</span><span>✸ ${Math.round(20 * (1 + 0.15 * s.damage))} DMG</span><span>⁂ ${UPGRADES[0].labels[s.shot]}</span><span>↯ ${s.bounce} BOUNCE</span><span>◈ ${s.armor * 6}% ARMOR</span><span>➤ ${Math.round(220 * (1 + 0.07 * s.speed))} SPD</span><span>⟳ ${(0.5 * (1 - 0.08 * s.fireRate)).toFixed(2)}s</span>`;
+    const S = playerStats(this.save); this.$('shopSummary').innerHTML = `<span class="cur">${S.tank.name}</span><span>♥ ${S.hp} HP</span><span>✸ ${S.dmg} DMG</span><span>⁂ ${S.shots} SHELL${S.shots > 1 ? 'S' : ''}</span><span>↯ ${S.bounces} BOUNCE</span><span>◈ ${Math.round(S.armor * 100)}% ARMOR</span><span>➤ ${S.speed} SPD</span><span>⟳ ${S.fireInt.toFixed(2)}s</span>`;
   },
   renderPet() {
-    const wrap = this.$('petCards'); wrap.innerHTML = ''; this.updateCoinLabels(); const lockBox = this.$('petLock');
+    const wrap = this.$('petCards'); wrap.innerHTML = ''; this.updateCoinLabels(); const lockBox = this.$('petLock'); const tabs = this.$('petTabs');
     if (!this.save.petUnlocked) {
-      lockBox.classList.add('show'); wrap.classList.remove('show'); const can = this.save.coins >= PET_UNLOCK_COST; const b = this.$('btnUnlockPet'); b.className = 'buy big ' + (can ? '' : 'poor'); b.textContent = '🪙 ' + PET_UNLOCK_COST + ' — UNLOCK';
+      lockBox.classList.add('show'); wrap.classList.remove('show'); tabs.classList.remove('show'); this.$('petTankCards').classList.remove('show'); this.$('petSummary').classList.remove('show');
+      const can = this.save.coins >= PET_UNLOCK_COST; const b = this.$('btnUnlockPet'); b.className = 'buy big ' + (can ? '' : 'poor'); b.textContent = '🪙 ' + PET_UNLOCK_COST + ' — UNLOCK';
+      const art = this.$('petArt'); art.innerHTML = ''; art.appendChild(this.tankPreview('stuart', 110, 'rgba(80,200,255,0.35)'));
       b.onclick = () => { if (!can) { Audio_.play('deny'); return; } this.save.coins -= PET_UNLOCK_COST; this.save.petUnlocked = true; this.persist(); Audio_.play('unlock'); this.renderPet(); };
       return;
     }
-    lockBox.classList.remove('show'); wrap.classList.add('show');
+    lockBox.classList.remove('show'); tabs.classList.add('show'); this.$('petSummary').classList.add('show');
+    this.petTab = this.petTab || 'upgrades';
+    tabs.querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.tab === this.petTab); b.onclick = () => { this.petTab = b.dataset.tab; Audio_.play('click'); this.renderPet(); }; });
+    wrap.classList.toggle('show', this.petTab === 'upgrades'); this.$('petTankCards').classList.toggle('show', this.petTab === 'chassis');
     for (const u of PET_UPGRADES) { const lvl = this.save.pet[u.id]; const maxed = lvl >= upgradeMax(u); const cost = maxed ? 0 : upgradeCost(u, lvl); wrap.appendChild(this.card(u, lvl, cost, this.save.coins >= cost, () => { this.save.coins -= cost; this.save.pet[u.id]++; this.persist(); this.renderPet(); }, maxed)); }
+    this.renderPetGarage();
+  },
+  /* ---------- tank sprite preview (hull + turret) rendered into a small canvas ---------- */
+  tankPreview(id, size = 96, tint = null) {
+    const c = document.createElement('canvas'); c.width = size; c.height = size; c.className = 'tankpv'; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+    const t = Assets.tanks[id]; const d = TANK_DEFS[id]; if (!t || !t.hull) return c; const sc = size / Math.max(46, d.l + 14);
+    g.translate(size / 2, size / 2); g.rotate(Math.PI / 4);
+    g.drawImage(t.hull, -d.hx * sc, -d.hy * sc, 100 * sc, 100 * sc);
+    const tinted = tint ? Assets.tintedTank(id, tint) : null; if (tinted) { g.globalAlpha = 0.8; g.drawImage(tinted.hull, -d.hx * sc, -d.hy * sc, 100 * sc, 100 * sc); g.globalAlpha = 1; }
+    g.rotate(-0.5); g.translate((d.tx - d.hx) * sc, (d.ty - d.hy) * sc);
+    g.drawImage(t.turret, -d.tx * sc, -d.ty * sc, 100 * sc, 100 * sc);
+    if (tinted) { g.globalAlpha = 0.8; g.drawImage(tinted.turret, -d.tx * sc, -d.ty * sc, 100 * sc, 100 * sc); g.globalAlpha = 1; }
+    return c;
+  },
+  statBar(label, v, max, color) { const p = clamp(v / max, 0, 1); return `<div class="sb"><span>${label}</span><i><b style="width:${p * 100}%;background:${color}"></b></i><em>${v}</em></div>`; },
+  tankCard(tk, opts) {
+    const { owned, selected, cost, onBuy, onSelect, forPet } = opts;
+    const c = document.createElement('div'); c.className = 'card tank' + (selected ? ' sel' : '') + (owned ? ' owned' : '') + ' cls-' + tk.cls.toLowerCase();
+    const hp = forPet ? Math.round(tk.hp * 0.6) : tk.hp, dmg = forPet ? Math.round(tk.dmg * 0.6) : tk.dmg, spd = forPet ? tk.speed + 15 : tk.speed, rof = forPet ? tk.fireInt * 1.6 : tk.fireInt;
+    c.innerHTML = `<div class="cls">${tk.cls}</div><h3>${tk.name}</h3><div class="pv"></div><p>${tk.desc}</p>${tk.perkText ? `<div class="perk">★ ${tk.perkText}</div>` : '<div class="perk none">no special perk</div>'}
+      ${this.statBar('HP', hp, forPet ? 110 : 180, '#5bd85b')}${this.statBar('DMG', dmg, forPet ? 18 : 30, '#ff8a5a')}${this.statBar('SPD', spd, 300, '#7fd4ff')}${this.statBar('ROF', Math.round(60 / rof), forPet ? 100 : 160, '#ffd166')}
+      <button class="buy ${selected ? 'dis' : owned ? 'sel' : this.save.coins >= cost ? '' : 'poor'}">${selected ? (forPet ? 'ACTIVE' : 'EQUIPPED') : owned ? (forPet ? 'ASSIGN' : 'EQUIP') : '🪙 ' + cost + ' — BUY'}</button>`;
+    c.querySelector('.pv').appendChild(this.tankPreview(tk.id, 96, forPet ? 'rgba(80,200,255,0.35)' : null));
+    const btn = c.querySelector('button');
+    btn.onclick = () => { if (selected) return; if (owned) { onSelect(); Audio_.play('click'); return; } if (this.save.coins < cost) { Audio_.play('deny'); btn.classList.add('shakeX'); setTimeout(() => btn.classList.remove('shakeX'), 400); return; } onBuy(); Audio_.play('unlock'); c.classList.add('bought'); };
+    btn.addEventListener('mouseenter', () => Audio_.play('hover'));
+    return c;
+  },
+  renderGarage() {
+    const wrap = this.$('garageCards'); wrap.innerHTML = ''; this.updateCoinLabels();
+    for (const tk of TANK_SHOP) {
+      const owned = this.save.ownedTanks.includes(tk.id), selected = this.save.tank === tk.id;
+      wrap.appendChild(this.tankCard(tk, { owned, selected, cost: tk.cost, forPet: false,
+        onBuy: () => { this.save.coins -= tk.cost; this.save.ownedTanks.push(tk.id); this.save.tank = tk.id; this.persist(); this.renderGarage(); },
+        onSelect: () => { this.save.tank = tk.id; this.persist(); this.renderGarage(); } }));
+    }
+    const S = playerStats(this.save); this.$('garageSummary').innerHTML = `<span class="cur">CURRENT: <b>${S.tank.name}</b></span><span>♥ ${S.hp} HP</span><span>✸ ${S.dmg} DMG</span><span>⁂ ${S.shots} SHELL${S.shots > 1 ? 'S' : ''}</span><span>↯ ${S.bounces} BOUNCE</span><span>◈ ${Math.round(S.armor * 100)}% ARMOR</span><span>➤ ${S.speed} SPD</span><span>⟳ ${S.fireInt.toFixed(2)}s</span>`;
+  },
+  renderPetGarage() {
+    const wrap = this.$('petTankCards'); wrap.innerHTML = '';
+    for (const tk of TANK_SHOP) {
+      const owned = this.save.ownedPetTanks.includes(tk.id), selected = this.save.petTank === tk.id;
+      wrap.appendChild(this.tankCard(tk, { owned, selected, cost: tk.petCost, forPet: true,
+        onBuy: () => { this.save.coins -= tk.petCost; this.save.ownedPetTanks.push(tk.id); this.save.petTank = tk.id; this.persist(); this.renderPet(); },
+        onSelect: () => { this.save.petTank = tk.id; this.persist(); this.renderPet(); } }));
+    }
+    const S = petStats(this.save); this.$('petSummary').innerHTML = `<span class="cur">COMPANION: <b>${S.tank.name}</b></span><span>♥ ${S.hp} HP</span><span>✸ ${S.dmg} DMG</span><span>⁂ ${S.shots} SHELL${S.shots > 1 ? 'S' : ''}</span><span>➤ ${S.speed} SPD</span><span>⟳ ${S.fireInt.toFixed(2)}s</span>`;
   },
   renderSettings() { const s = this.save.settings; this.$('setSfx').value = s.sfx; this.$('setMusic').value = s.music; this.$('setShake').checked = s.shake; this.$('setLowFx').checked = s.lowFx; const st = this.save.stats; this.$('statsBox').innerHTML = `<div><span>TOTAL KILLS</span><b>${st.kills}</b></div><div><span>TOTAL COINS</span><b>${st.coinsTotal}</b></div><div><span>BEST LEVEL</span><b>${st.bestLevel}</b></div>`; },
   /* ---------- HUD ---------- */

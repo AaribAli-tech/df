@@ -71,7 +71,7 @@ class Tank {
     this.exhaustT -= dt; if (this.exhaustT <= 0) { this.exhaustT = this.moving ? 0.12 : 0.35; const a = this.bodyAng + Math.PI; const bx = this.x + Math.cos(a) * this.def.l * 0.45 * this.scale, by = this.y + Math.sin(a) * this.def.l * 0.45 * this.scale; this.game.smoke(bx, by, this.moving ? 0.55 : 0.35, 0.28 * this.scale); }
   }
   fireVolley(shots, spread, dmg, bSpeed, bounces, opts = {}) {
-    const spreads = SHOT_SPREADS[Math.min(shots, 4) - 1] || [0]; const m = this.muzzle();
+    const spreads = SHOT_SPREADS[Math.min(shots, 5) - 1] || [0]; const m = this.muzzle();
     for (const s of spreads) { const a = this.turretAng + s * (spread || 1) + (opts.err ? (Math.random() - 0.5) * 2 * opts.err : 0); this.game.spawnBullet(m.x, m.y, a, bSpeed, dmg, this, bounces, opts); }
     this.recoil = 1; this.game.muzzleFlash(m.x, m.y, this.turretAng, this.scale * (opts.big ? 1.6 : 1));
   }
@@ -109,10 +109,9 @@ class Tank {
 /* ---------- Player ---------- */
 class Player extends Tank {
   constructor(game, x, y) {
-    const st = game.save.up; super(game, PLAYER_BASE.tank, x, y, PLAYER_BASE.scale); this.team = 'player'; this.isPlayer = true; this.ringColor = 'rgba(120,255,140,0.9)';
-    this.maxHp = PLAYER_BASE.hp + 20 * st.health; this.hp = this.maxHp; this.speed = PLAYER_BASE.speed * (1 + 0.07 * st.speed);
-    this.dmg = PLAYER_BASE.dmg * (1 + 0.15 * st.damage); this.fireInt = PLAYER_BASE.fireInt * (1 - 0.08 * st.fireRate); this.shots = st.shot + 1; this.bounces = st.bounce; this.armor = st.armor * 0.06;
-    this.radius = PLAYER_BASE.radius; this.invuln = 0; this.shotsFired = 0; this.shotsHit = 0; this.regenT = 0;
+    const S = playerStats(game.save); super(game, S.tank.id, x, y, S.scale); this.team = 'player'; this.isPlayer = true; this.ringColor = 'rgba(120,255,140,0.9)';
+    this.maxHp = S.hp; this.hp = this.maxHp; this.speed = S.speed; this.dmg = S.dmg; this.fireInt = S.fireInt; this.shots = S.shots; this.bounces = S.bounces; this.armor = S.armor; this.bSpeed = S.bSpeed; this.bossDmg = S.bossDmg; this.magnet = S.magnet; this.coinMult = S.coin;
+    this.radius = S.radius; this.invuln = 0; this.shotsFired = 0; this.shotsHit = 0; this.regenT = 0;
   }
   update(dt) {
     const I = Input; const mv = I.move; const cam = this.game.cam;
@@ -124,7 +123,7 @@ class Player extends Tank {
     this.turretAng = rotToward(this.turretAng, aimAng, 14 * dt);
     if (I.fire && this.cooldown <= 0 && Math.abs(angDiff(this.turretAng, aimAng)) < 0.35) {
       this.cooldown = this.fireInt; const dmg = this.dmg * SHOT_DMG_MULT[this.shots - 1];
-      this.fireVolley(this.shots, 1, dmg, PLAYER_BASE.bSpeed, this.bounces); this.shotsFired += this.shots; Audio_.play('shoot'); this.game.shake(2.5);
+      this.fireVolley(this.shots, 1, dmg, this.bSpeed, this.bounces); this.shotsFired += this.shots; Audio_.play('shoot'); this.game.shake(2.5);
       // kick back
       const kb = 40 * dt; this.moveBy(-Math.cos(this.turretAng) * kb, -Math.sin(this.turretAng) * kb);
     }
@@ -143,9 +142,9 @@ class Player extends Tank {
 /* ---------- Pet companion tank ---------- */
 class Pet extends Tank {
   constructor(game, x, y) {
-    const st = game.save.pet; super(game, PET_BASE.tank, x, y, PET_BASE.scale); this.team = 'player'; this.isPet = true; this.tint = 'rgba(80,200,255,0.35)'; this.ringColor = 'rgba(120,210,255,0.9)';
-    this.maxHp = PET_BASE.hp + 25 * st.health; this.hp = this.maxHp; this.speed = PET_BASE.speed * (1 + 0.08 * st.speed); this.dmg = PET_BASE.dmg * (1 + 0.2 * st.damage); this.fireInt = PET_BASE.fireInt * (1 - 0.1 * st.fireRate); this.shots = st.shot + 1;
-    this.radius = PET_BASE.radius; this.target = null; this.retargetT = 0; this.orbitAng = Math.PI; this.orbitT = 0; this.respawnT = 0; this.turretSpd = 6;
+    const S = petStats(game.save); super(game, S.tank.id, x, y, S.scale); this.team = 'player'; this.isPet = true; this.tint = 'rgba(80,200,255,0.35)'; this.ringColor = 'rgba(120,210,255,0.9)';
+    this.maxHp = S.hp; this.hp = this.maxHp; this.speed = S.speed; this.dmg = S.dmg; this.fireInt = S.fireInt; this.shots = S.shots; this.bounces = S.bounces; this.armor = S.armor; this.bSpeed = S.bSpeed; this.bossDmg = S.bossDmg;
+    this.radius = S.radius; this.target = null; this.retargetT = 0; this.orbitAng = Math.PI; this.orbitT = 0; this.respawnT = 0; this.turretSpd = 6;
   }
   update(dt) {
     const P = this.game.player; if (this.dead) { this.respawnT -= dt; if (this.respawnT <= 0 && !P.dead) this.respawn(); return; }
@@ -167,16 +166,16 @@ class Pet extends Tank {
     }
     // aim + fire
     if (this.target) {
-      const lead = this.game.leadAngle(this, this.target, PET_BASE.bSpeed); this.turretAng = rotToward(this.turretAng, lead, this.turretSpd * dt);
+      const lead = this.game.leadAngle(this, this.target, this.bSpeed); this.turretAng = rotToward(this.turretAng, lead, this.turretSpd * dt);
       if (this.cooldown <= 0 && Math.abs(angDiff(this.turretAng, lead)) < 0.12 && this.game.map.lineOfSight(this.x, this.y, this.target.x, this.target.y) && !this.friendlyInLine(this.target)) {
-        this.cooldown = this.fireInt; this.fireVolley(this.shots, 1, this.dmg * SHOT_DMG_MULT[this.shots - 1], PET_BASE.bSpeed, 0, { r: 4 }); Audio_.play('petShoot', 0.7);
+        this.cooldown = this.fireInt; this.fireVolley(this.shots, 1, this.dmg * SHOT_DMG_MULT[this.shots - 1], this.bSpeed, this.bounces, { r: 4 }); Audio_.play('petShoot', 0.7);
       }
     } else this.turretAng = rotToward(this.turretAng, this.bodyAng, 4 * dt);
     this.separateFromTanks(dt); this.updateCommon(dt);
   }
   friendlyInLine(t) { const P = this.game.player; const d = dist(this.x, this.y, t.x, t.y); const a = Math.atan2(t.y - this.y, t.x - this.x); const dp = dist(this.x, this.y, P.x, P.y); if (dp > d) return false; const ap = Math.atan2(P.y - this.y, P.x - this.x); return Math.abs(angDiff(a, ap)) < Math.atan2(P.radius + 6, dp); }
   pickTarget() { let best = null, bd = 1e9; for (const e of this.game.enemies) { if (e.dead) continue; const d = dist(this.x, this.y, e.x, e.y) + (this.game.map.lineOfSight(this.x, this.y, e.x, e.y) ? 0 : 400); if (d < bd) { bd = d; best = e; } } return best; }
-  takeDamage(a, from) { if (this.dead) return; super.takeDamage(a, from); this.game.floatText(this.x, this.y - 22, '-' + Math.round(a), '#7fd4ff', 0.8); }
+  takeDamage(a, from) { if (this.dead) return; a = Math.max(1, Math.round(a * (1 - (this.armor || 0)))); super.takeDamage(a, from); this.game.floatText(this.x, this.y - 22, '-' + a, '#7fd4ff', 0.8); }
   die() { this.dead = true; this.respawnT = 12; this.game.explode(this.x, this.y, 0.9); this.game.floatText(this.x, this.y - 30, 'COMPANION DOWN', '#7fd4ff'); }
   respawn() { const P = this.game.player; this.dead = false; this.hp = this.maxHp; this.x = P.x - Math.cos(P.bodyAng) * 60; this.y = P.y - Math.sin(P.bodyAng) * 60; this.game.floatText(this.x, this.y - 30, 'COMPANION BACK', '#7fd4ff'); this.game.smoke(this.x, this.y, 1, 1.2); }
 }

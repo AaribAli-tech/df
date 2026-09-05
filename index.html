@@ -53,10 +53,11 @@
   <div class="menu-btns">
     <button id="btnPlay" class="mbtn primary">▶ PLAY</button>
     <button id="btnUpgrades" class="mbtn">⚙ UPGRADES</button>
+    <button id="btnGarage" class="mbtn">🚜 GARAGE</button>
     <button id="btnPet" class="mbtn">🛡 PET TANK</button>
     <button id="btnSettings" class="mbtn">♪ SETTINGS</button>
   </div>
-  <div class="menu-foot"><span class="gold">🪙 <b id="menuCoins">0</b></span><span id="menuBest">BEST LEVEL: 0</span></div>
+  <div class="menu-foot"><span class="gold">🪙 <b id="menuCoins">0</b></span><span id="menuTank">TANK: T-34</span><span id="menuBest">BEST LEVEL: 0</span></div>
   <div class="controls-hint">WASD / ARROWS move • MOUSE aim • CLICK / SPACE fire • ESC pause</div>
 </div>
 
@@ -75,17 +76,27 @@
   <div id="shopCards" class="cards"></div>
 </div>
 
+<!-- Garage (tank shop) -->
+<div id="scr-garage" class="screen panel">
+  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2>GARAGE — BUY & EQUIP TANKS</h2><span class="gold">🪙 <b class="coinBal">0</b></span></div>
+  <div id="garageSummary" class="summary"></div>
+  <div id="garageCards" class="cards tanks"></div>
+</div>
+
 <!-- Pet Shop -->
 <div id="scr-pet" class="screen panel">
   <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2>COMPANION TANK</h2><span class="gold">🪙 <b class="coinBal">0</b></span></div>
   <div id="petLock" class="petlock">
-    <div class="petart"><div class="tankicon"></div></div>
+    <div class="petart" id="petArt"></div>
     <h3>COMPANION TANK</h3>
     <p>A small combat tank that follows you, picks its own targets and fights by your side. Respawns if destroyed.</p>
     <div class="status">LOCKED</div>
     <button id="btnUnlockPet" class="buy big">🪙 1000 — UNLOCK</button>
   </div>
+  <div id="petTabs" class="tabs"><button data-tab="upgrades">⚙ PET UPGRADES</button><button data-tab="chassis">🚜 PET CHASSIS</button></div>
+  <div id="petSummary" class="summary hideable"></div>
   <div id="petCards" class="cards"></div>
+  <div id="petTankCards" class="cards tanks"></div>
 </div>
 
 <!-- Settings -->
@@ -116,6 +127,7 @@
     <div id="winStats" class="stats"></div>
     <button id="btnNext" class="mbtn primary">NEXT LEVEL ▶</button>
     <button id="btnWinUpgrades" class="mbtn">⚙ UPGRADES</button>
+    <button id="btnWinGarage" class="mbtn">🚜 GARAGE</button>
     <button id="btnWinMenu" class="mbtn">MAIN MENU</button>
   </div>
 </div>
@@ -126,6 +138,7 @@
     <div id="loseStats" class="stats"></div>
     <button id="btnRetry" class="mbtn primary">↻ RETRY</button>
     <button id="btnLoseUpgrades" class="mbtn">⚙ UPGRADES</button>
+    <button id="btnLoseGarage" class="mbtn">🚜 GARAGE</button>
     <button id="btnLoseMenu" class="mbtn">MAIN MENU</button>
   </div>
 </div>
