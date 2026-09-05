@@ -29,7 +29,7 @@ const App = {
   showScreen(name) {
     this.screen = name; document.querySelectorAll('.screen').forEach(s => s.classList.toggle('show', s.id === 'scr-' + name));
     this.$('hud').classList.toggle('show', name === 'play' || name === 'pause'); this.$('touchLayer').classList.toggle('show', name === 'play');
-    if (name === 'menu') { if (Audio_.ctx && Audio_.musicKind !== 'menu') Audio_.startMusic('menu'); this.$('menuCoins').textContent = this.save.coins; this.$('menuBest').textContent = 'BEST LEVEL: ' + (this.save.stats.bestLevel || 0); this.$('menuTank').textContent = 'TANK: ' + (TANK_BY_ID[this.save.tank] || TANK_BY_ID.t34).name; this.$('menuSquad').textContent = this.save.petUnlocked ? 'SQUAD: ' + squadList(this.save).length : 'SQUAD: —'; this.game.state = 'idle'; }
+    if (name === 'menu') { if (Audio_.ctx && Audio_.musicKind !== 'menu') Audio_.startMusic('menu'); this.$('menuCoins').textContent = this.save.coins; this.$('menuBest').textContent = (this.save.stats.bestLevel || 0); this.$('menuTank').textContent = (TANK_BY_ID[this.save.tank] || TANK_BY_ID.t34).name; this.$('menuSquad').textContent = this.save.petUnlocked ? squadList(this.save).length + ' / ' + MAX_PETS : 'LOCKED'; this.game.state = 'idle'; }
     if (name === 'levels') this.renderLevels();
     if (name === 'shop') this.renderShop();
     if (name === 'garage') this.renderGarage();
@@ -97,7 +97,7 @@ const App = {
   card(u, lvl, cost, canAfford, onBuy, maxed) {
     const c = document.createElement('div'); c.className = 'card' + (maxed ? ' maxed' : '');
     const dots = Array.from({ length: upgradeMax(u) }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('');
-    c.innerHTML = `<div class="ic">${u.icon}</div><h3>${u.name}</h3><p>${u.desc}</p><div class="lv">${dots}</div><div class="row"><span>CURRENT</span><b>${upgradeLabel(u, lvl)}</b></div>${maxed ? '<div class="row"><span>NEXT</span><b>MAX</b></div>' : `<div class="row"><span>NEXT</span><b class="nx">${upgradeLabel(u, lvl + 1)}</b></div>`}<button class="buy ${maxed ? 'dis' : canAfford ? '' : 'poor'}">${maxed ? 'MAXED' : '🪙 ' + cost + ' — UPGRADE'}</button>`;
+    c.innerHTML = `<div class="ic">${u.icon}</div><h3>${u.name}</h3><p>${u.desc}</p><div class="lv">${dots}</div><div class="row"><span>CURRENT</span><b>${upgradeLabel(u, lvl)}</b></div>${maxed ? '<div class="row"><span>NEXT</span><b>MAX</b></div>' : `<div class="row"><span>NEXT</span><b class="nx">${upgradeLabel(u, lvl + 1)}</b></div>`}<button class="buy ${maxed ? 'dis' : canAfford ? '' : 'poor'}">${maxed ? 'MAXED' : '<span class=\"c\">🪙 ' + cost + '</span> UPGRADE'}</button>`;
     const btn = c.querySelector('button'); btn.onclick = () => { if (maxed) return; if (!canAfford) { Audio_.play('deny'); btn.classList.add('shakeX'); setTimeout(() => btn.classList.remove('shakeX'), 400); return; } onBuy(); Audio_.play('buy'); c.classList.add('bought'); };
     btn.addEventListener('mouseenter', () => Audio_.play('hover')); return c;
   },

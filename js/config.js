@@ -44,19 +44,19 @@ const TANK_DEFS = {
 /* ---------- Tank shop (Garage): all 13 hulls from the repo, each with its own stats + perk ----------
    scale = player sprite scale (pet uses scale*0.75). Perks: shots, bounce, armor, bSpeed, bossDmg, magnet, coin */
 const TANK_SHOP = [
-  { id: 'type95',   name: 'TYPE 95',   cls: 'LIGHT',  cost: 400,  petCost: 250,  hp: 70,  speed: 290, dmg: 14, fireInt: 0.38, scale: 2.3,  desc: 'Tiny, nimble scout. Hard to hit, quick to reload.' },
-  { id: 'm13',      name: 'M13/40',    cls: 'LIGHT',  cost: 450,  petCost: 300,  hp: 75,  speed: 270, dmg: 15, fireInt: 0.40, scale: 2.1,  desc: 'Light Italian tank. Fast and cheap.' },
-  { id: 'stuart',   name: 'STUART',    cls: 'LIGHT',  cost: 500,  petCost: 0,    hp: 80,  speed: 275, dmg: 16, fireInt: 0.42, scale: 2.25, desc: 'Agile cavalry tank with a rapid-fire gun.' },
-  { id: 't26',      name: 'T-26',      cls: 'LIGHT',  cost: 600,  petCost: 350,  hp: 85,  speed: 255, dmg: 18, fireInt: 0.45, scale: 1.9,  desc: 'Balanced light tank with a decent punch.' },
-  { id: 'crusader', name: 'CRUSADER',  cls: 'LIGHT',  cost: 800,  petCost: 500,  hp: 90,  speed: 265, dmg: 18, fireInt: 0.45, scale: 1.7,  desc: 'Desert raider. Pulls coins from further away.', perk: { magnet: 1.6 }, perkText: 'SCAVENGER: +60% coin magnet range' },
-  { id: 't34',      name: 'T-34',      cls: 'MEDIUM', cost: 0,    petCost: 600,  hp: 100, speed: 230, dmg: 20, fireInt: 0.50, scale: 1.9,  desc: 'Reliable all-rounder. Your starting tank.' },
-  { id: 'panzer4',  name: 'PANZER IV', cls: 'MEDIUM', cost: 1000, petCost: 600,  hp: 105, speed: 230, dmg: 22, fireInt: 0.50, scale: 1.9,  desc: 'Workhorse medium with a long 75mm gun.' },
-  { id: 'sherman',  name: 'SHERMAN',   cls: 'MEDIUM', cost: 1200, petCost: 700,  hp: 110, speed: 225, dmg: 21, fireInt: 0.48, scale: 2.0,  desc: 'Mass-produced medium. Earns extra coins.', perk: { coin: 1.15 }, perkText: 'LEND-LEASE: +15% coins collected' },
-  { id: 'matilda',  name: 'MATILDA',   cls: 'HEAVY',  cost: 1500, petCost: 900,  hp: 140, speed: 190, dmg: 20, fireInt: 0.55, scale: 2.1,  desc: 'Slow infantry tank wrapped in thick steel.', perk: { armor: 0.12 }, perkText: 'THICK ARMOR: 12% damage reduction' },
-  { id: 'lee',      name: 'M3 LEE',    cls: 'MEDIUM', cost: 1600, petCost: 900,  hp: 115, speed: 210, dmg: 19, fireInt: 0.48, scale: 1.85, desc: 'Two guns are better than one.', perk: { shots: 1 }, perkText: 'TWIN GUNS: +1 shell per shot' },
-  { id: 'kv1',      name: 'KV-1',      cls: 'HEAVY',  cost: 2200, petCost: 1300, hp: 170, speed: 175, dmg: 26, fireInt: 0.65, scale: 1.85, desc: 'Steel fortress. Built to crack bosses.', perk: { bossDmg: 1.25 }, perkText: 'SIEGE SHELLS: +25% damage to bosses' },
-  { id: 'panther',  name: 'PANTHER',   cls: 'HEAVY',  cost: 2800, petCost: 1600, hp: 130, speed: 215, dmg: 26, fireInt: 0.50, scale: 1.8,  desc: 'Sloped armor and a gun made for trick shots.', perk: { bounce: 1 }, perkText: 'RICOCHET GUN: +1 bounce' },
-  { id: 'tiger',    name: 'TIGER',     cls: 'HEAVY',  cost: 3500, petCost: 2000, hp: 180, speed: 185, dmg: 30, fireInt: 0.60, scale: 1.8,  desc: 'The legend. Devastating 88mm cannon.', perk: { bSpeed: 1.2 }, perkText: '88mm GUN: +20% shell speed' },
+  { id: 'type95',   name: 'TYPE 95',   cls: 'LIGHT',  cost: 200,  petCost: 125,  hp: 70,  speed: 290, dmg: 14, fireInt: 0.38, scale: 2.3,  desc: 'Tiny, nimble scout. Hard to hit, quick to reload.' },
+  { id: 'm13',      name: 'M13/40',    cls: 'LIGHT',  cost: 225,  petCost: 150,  hp: 75,  speed: 270, dmg: 15, fireInt: 0.40, scale: 2.1,  desc: 'Light Italian tank. Fast and cheap.' },
+  { id: 'stuart',   name: 'STUART',    cls: 'LIGHT',  cost: 250,  petCost: 0,    hp: 80,  speed: 275, dmg: 16, fireInt: 0.42, scale: 2.25, desc: 'Agile cavalry tank with a rapid-fire gun.' },
+  { id: 't26',      name: 'T-26',      cls: 'LIGHT',  cost: 300,  petCost: 175,  hp: 85,  speed: 255, dmg: 18, fireInt: 0.45, scale: 1.9,  desc: 'Balanced light tank with a decent punch.' },
+  { id: 'crusader', name: 'CRUSADER',  cls: 'LIGHT',  cost: 400,  petCost: 250,  hp: 90,  speed: 265, dmg: 18, fireInt: 0.45, scale: 1.7,  desc: 'Desert raider. Pulls coins from further away.', perk: { magnet: 1.6 }, perkText: 'SCAVENGER: +60% coin magnet range' },
+  { id: 't34',      name: 'T-34',      cls: 'MEDIUM', cost: 0,    petCost: 300,  hp: 100, speed: 230, dmg: 20, fireInt: 0.50, scale: 1.9,  desc: 'Reliable all-rounder. Your starting tank.' },
+  { id: 'panzer4',  name: 'PANZER IV', cls: 'MEDIUM', cost: 500, petCost: 300,  hp: 105, speed: 230, dmg: 22, fireInt: 0.50, scale: 1.9,  desc: 'Workhorse medium with a long 75mm gun.' },
+  { id: 'sherman',  name: 'SHERMAN',   cls: 'MEDIUM', cost: 600, petCost: 350,  hp: 110, speed: 225, dmg: 21, fireInt: 0.48, scale: 2.0,  desc: 'Mass-produced medium. Earns extra coins.', perk: { coin: 1.15 }, perkText: 'LEND-LEASE: +15% coins collected' },
+  { id: 'matilda',  name: 'MATILDA',   cls: 'HEAVY',  cost: 750, petCost: 450,  hp: 140, speed: 190, dmg: 20, fireInt: 0.55, scale: 2.1,  desc: 'Slow infantry tank wrapped in thick steel.', perk: { armor: 0.12 }, perkText: 'THICK ARMOR: 12% damage reduction' },
+  { id: 'lee',      name: 'M3 LEE',    cls: 'MEDIUM', cost: 800, petCost: 450,  hp: 115, speed: 210, dmg: 19, fireInt: 0.48, scale: 1.85, desc: 'Two guns are better than one.', perk: { shots: 1 }, perkText: 'TWIN GUNS: +1 shell per shot' },
+  { id: 'kv1',      name: 'KV-1',      cls: 'HEAVY',  cost: 1100, petCost: 650, hp: 170, speed: 175, dmg: 26, fireInt: 0.65, scale: 1.85, desc: 'Steel fortress. Built to crack bosses.', perk: { bossDmg: 1.25 }, perkText: 'SIEGE SHELLS: +25% damage to bosses' },
+  { id: 'panther',  name: 'PANTHER',   cls: 'HEAVY',  cost: 1400, petCost: 800, hp: 130, speed: 215, dmg: 26, fireInt: 0.50, scale: 1.8,  desc: 'Sloped armor and a gun made for trick shots.', perk: { bounce: 1 }, perkText: 'RICOCHET GUN: +1 bounce' },
+  { id: 'tiger',    name: 'TIGER',     cls: 'HEAVY',  cost: 1750, petCost: 1000, hp: 180, speed: 185, dmg: 30, fireInt: 0.60, scale: 1.8,  desc: 'The legend. Devastating 88mm cannon.', perk: { bSpeed: 1.2 }, perkText: '88mm GUN: +20% shell speed' },
 ];
 const TANK_BY_ID = {}; for (const t of TANK_SHOP) TANK_BY_ID[t.id] = t;
 const tankRadius = (t, scale) => Math.round(TANK_DEFS[t.id].l * scale * 0.29);
@@ -82,26 +82,26 @@ const BOSS_DEFS = {
 
 /* ---------- Upgrades ---------- */
 const UPGRADES = [
-  { id: 'shot',     name: 'SHOT TYPE',      icon: '⁂', desc: 'Fire more shells per shot in a tight spread.', labels: ['Single', 'Dual', 'Triple', 'Quad'], costs: [250, 650, 1500] },
-  { id: 'bounce',   name: 'RICOCHET',       icon: '↯', desc: 'Your shells bounce off stone walls.', labels: ['No bounce', '1 bounce', '2 bounces', '3 bounces'], costs: [200, 550, 1200] },
-  { id: 'health',   name: 'HULL PLATING',   icon: '♥', desc: '+20 max health per level.', max: 8, base: 120, mult: 1.45, fmt: (l) => '+' + (20 * l) + ' HP' },
-  { id: 'armor',    name: 'REACTIVE ARMOR', icon: '◈', desc: 'Take 6% less damage per level.', max: 5, base: 220, mult: 1.6, fmt: (l) => (l * 6) + '% DR' },
-  { id: 'damage',   name: 'SHELL DAMAGE',   icon: '✸', desc: '+15% shell damage per level.', max: 8, base: 150, mult: 1.5, fmt: (l) => '+' + (15 * l) + '% DMG' },
-  { id: 'speed',    name: 'ENGINE',         icon: '➤', desc: '+7% movement speed per level.', max: 5, base: 130, mult: 1.5, fmt: (l) => '+' + (7 * l) + '% SPD' },
-  { id: 'fireRate', name: 'AUTOLOADER',     icon: '⟳', desc: 'Reload faster between shots.', max: 6, base: 170, mult: 1.55, fmt: (l) => '-' + (8 * l) + '% reload' },
+  { id: 'shot',     name: 'SHOT TYPE',      icon: '⁂', desc: 'Fire more shells per shot in a tight spread.', labels: ['Single', 'Dual', 'Triple', 'Quad'], costs: [125, 325, 750] },
+  { id: 'bounce',   name: 'RICOCHET',       icon: '↯', desc: 'Your shells bounce off stone walls.', labels: ['No bounce', '1 bounce', '2 bounces', '3 bounces'], costs: [100, 275, 600] },
+  { id: 'health',   name: 'HULL PLATING',   icon: '♥', desc: '+20 max health per level.', max: 8, base: 60, mult: 1.45, fmt: (l) => '+' + (20 * l) + ' HP' },
+  { id: 'armor',    name: 'REACTIVE ARMOR', icon: '◈', desc: 'Take 6% less damage per level.', max: 5, base: 110, mult: 1.6, fmt: (l) => (l * 6) + '% DR' },
+  { id: 'damage',   name: 'SHELL DAMAGE',   icon: '✸', desc: '+15% shell damage per level.', max: 8, base: 75, mult: 1.5, fmt: (l) => '+' + (15 * l) + '% DMG' },
+  { id: 'speed',    name: 'ENGINE',         icon: '➤', desc: '+7% movement speed per level.', max: 5, base: 65, mult: 1.5, fmt: (l) => '+' + (7 * l) + '% SPD' },
+  { id: 'fireRate', name: 'AUTOLOADER',     icon: '⟳', desc: 'Reload faster between shots.', max: 6, base: 85, mult: 1.55, fmt: (l) => '-' + (8 * l) + '% reload' },
 ];
 const PET_UPGRADES = [
-  { id: 'shot',     name: 'PET SHOT TYPE', icon: '⁂', desc: 'Companion fires more shells per shot.', labels: ['Single', 'Dual', 'Triple', 'Quad'], costs: [300, 750, 1600] },
-  { id: 'damage',   name: 'PET DAMAGE',    icon: '✸', desc: '+20% companion shell damage.', max: 6, base: 120, mult: 1.5, fmt: (l) => '+' + (20 * l) + '% DMG' },
-  { id: 'fireRate', name: 'PET FIRE RATE', icon: '⟳', desc: 'Companion reloads faster.', max: 5, base: 140, mult: 1.55, fmt: (l) => '-' + (10 * l) + '% reload' },
-  { id: 'health',   name: 'PET HEALTH',    icon: '♥', desc: '+25 companion health.', max: 5, base: 110, mult: 1.5, fmt: (l) => '+' + (25 * l) + ' HP' },
-  { id: 'speed',    name: 'PET SPEED',     icon: '➤', desc: '+8% companion speed.', max: 4, base: 110, mult: 1.5, fmt: (l) => '+' + (8 * l) + '% SPD' },
+  { id: 'shot',     name: 'PET SHOT TYPE', icon: '⁂', desc: 'Companion fires more shells per shot.', labels: ['Single', 'Dual', 'Triple', 'Quad'], costs: [150, 375, 800] },
+  { id: 'damage',   name: 'PET DAMAGE',    icon: '✸', desc: '+20% companion shell damage.', max: 6, base: 60, mult: 1.5, fmt: (l) => '+' + (20 * l) + '% DMG' },
+  { id: 'fireRate', name: 'PET FIRE RATE', icon: '⟳', desc: 'Companion reloads faster.', max: 5, base: 70, mult: 1.55, fmt: (l) => '-' + (10 * l) + '% reload' },
+  { id: 'health',   name: 'PET HEALTH',    icon: '♥', desc: '+25 companion health.', max: 5, base: 55, mult: 1.5, fmt: (l) => '+' + (25 * l) + ' HP' },
+  { id: 'speed',    name: 'PET SPEED',     icon: '➤', desc: '+8% companion speed.', max: 4, base: 55, mult: 1.5, fmt: (l) => '+' + (8 * l) + '% SPD' },
 ];
-const PET_UNLOCK_COST = 1000;
+const PET_UNLOCK_COST = 500;
 const MAX_PETS = 5;
-const PET_SLOT_COSTS = [0, 800, 1500, 2500, 4000]; // cost to unlock slot index i (slot 0 comes with the companion unlock)
+const PET_SLOT_COSTS = [0, 400, 750, 1250, 2000]; // cost to unlock slot index i (slot 0 comes with the companion unlock)
 function upgradeMax(u) { return u.labels ? u.labels.length - 1 : u.max; }
-function upgradeCost(u, lvl) { if (u.labels) return u.costs[lvl]; return Math.round(u.base * Math.pow(u.mult, lvl) / 10) * 10; }
+function upgradeCost(u, lvl) { if (u.labels) return u.costs[lvl]; return Math.round(u.base * Math.pow(u.mult, lvl) / 5) * 5; }
 function upgradeLabel(u, lvl) { return u.labels ? u.labels[lvl] : u.fmt(lvl); }
 
 /* ---------- Levels ----------

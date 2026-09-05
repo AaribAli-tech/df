@@ -52,7 +52,8 @@ class Game {
   }
   /* ---------- per-frame update ---------- */
   update(dt) {
-    if (this.state !== 'play' && this.state !== 'ending') return;
+    if (this.state !== 'play' && this.state !== 'ending' && this.state !== 'done') return;
+    if (this.state === 'done') { this.time += dt; this.updateBullets(dt); this.updateParticles(dt); this.updateCoins(dt); this.updateTexts(dt); this.updateFX(dt); for (let i = this.rings.length - 1; i >= 0; i--) { const r = this.rings[i]; r.t += dt; if (r.t > r.dur) this.rings.splice(i, 1); } if (this.cam.shake > 0) { this.cam.shake = Math.max(0, this.cam.shake - dt * 30); this.cam.sx = rand(-1, 1) * this.cam.shake; this.cam.sy = rand(-1, 1) * this.cam.shake; } else { this.cam.sx = 0; this.cam.sy = 0; } return; }
     this.time += dt; this.elapsed += dt; if (this.hitFlash > 0) this.hitFlash -= dt; if (this.announceT > 0) this.announceT -= dt;
     // flow field toward player (for enemy pathing) every 0.35s
     this.flowT -= dt; if (this.flowT <= 0) { this.flowT = 0.35; this.map.updatePropGrid(this.props); this.map.computeFlow(this.player.x, this.player.y); }
@@ -80,7 +81,7 @@ class Game {
     tx = clamp(tx, hw, this.map.W - hw); ty = clamp(ty, hh, this.map.H - hh); if (this.map.W < hw * 2) tx = this.map.W / 2; if (this.map.H < hh * 2) ty = this.map.H / 2;
     const k = 1 - Math.pow(0.001, dt); this.cam.x += (tx - this.cam.x) * k; this.cam.y += (ty - this.cam.y) * k;
     if (this.cam.shake > 0) { this.cam.shake = Math.max(0, this.cam.shake - dt * 30); this.cam.sx = rand(-1, 1) * this.cam.shake; this.cam.sy = rand(-1, 1) * this.cam.shake; } else { this.cam.sx = 0; this.cam.sy = 0; }
-    if (this.state === 'ending') { this.endT -= dt; if (this.endT <= 0) this.app.onLevelEnd(this.endResult); }
+    if (this.state === 'ending') { this.endT -= dt; if (this.endT <= 0) { this.state = 'done'; if (this.endResult === 'win') this.bankRemainingCoins(); this.app.onLevelEnd(this.endResult); } }
   }
   shake(a) { this.cam.shake = Math.min(12, Math.max(this.cam.shake, a)); }
   /* ---------- bullets & ricochet ---------- */
@@ -152,12 +153,12 @@ class Game {
     this.dropCoins(e.x, e.y, e.coins); if (Math.random() < 0.25) this.floatText(e.x, e.y - 40, pick(['DESTROYED!', 'BOOM!', 'WRECKED!']), '#ffd166', 1.1);
   }
   onBossKilled(b, from) {
-    this.killed++; Audio_.play('bigExplode'); this.shake(12); this.dropCoins(b.x, b.y, b.coins); this.decal(b.x, b.y, 'crater');
+    if (this.state !== 'play') return; this.killed++; Audio_.play('bigExplode'); this.shake(12); this.dropCoins(b.x, b.y, b.coins); this.decal(b.x, b.y, 'crater');
     for (let i = 0; i < 7; i++) setTimeout(() => { if (this.state === 'idle') return; this.explode(b.x + rand(-50, 50), b.y + rand(-50, 50), 1.2 + Math.random()); Audio_.play('explode'); this.shake(6); }, i * 180);
     this.announce(b.name + ' DESTROYED!', '#ffd166', 3); this.state = 'ending'; this.endT = 2.6; this.endResult = 'win';
     Audio_.play('levelComplete');
   }
-  onPlayerDeath() { this.explode(this.player.x, this.player.y, 1.4); Audio_.play('bigExplode'); this.shake(12); Audio_.stopMusic(); this.state = 'ending'; this.endT = 2.2; this.endResult = 'lose'; Audio_.play('gameOver'); }
+  onPlayerDeath() { if (this.state !== 'play') return; this.explode(this.player.x, this.player.y, 1.4); Audio_.play('bigExplode'); this.shake(12); Audio_.stopMusic(); this.state = 'ending'; this.endT = 2.2; this.endResult = 'lose'; Audio_.play('gameOver'); }
   levelComplete() { if (this.state !== 'play') return; this.state = 'ending'; this.endT = 1.6; this.endResult = 'win'; Audio_.play('levelComplete'); this.announce('LEVEL COMPLETE!', '#7fff7f', 2); // auto-collect remaining coins
     for (let i = 0; i < this.coins.n; i++) this.coins.items[i].magnet = true; }
   /* ---------- coins ---------- */
@@ -177,6 +178,7 @@ class Game {
       if (d < P.radius + 8 && !P.dead) { this.collectCoin(c); C.release(i); i--; }
     }
   }
+  bankRemainingCoins() { let sum = 0; const C = this.coins; for (let i = 0; i < C.n; i++) sum += Math.max(1, Math.round(C.items[i].value * (this.player.coinMult || 1))); C.clear(); if (sum > 0) { this.coinsEarned += sum; this.save.coins += sum; this.app.coinPop(); } }
   collectCoin(c) { const v = Math.max(1, Math.round(c.value * (this.player.coinMult || 1))); this.coinsEarned += v; this.save.coins += v; this.app.coinPop(); Audio_.play('coin'); this.floatText(this.player.x + rand(-14, 14), this.player.y - 34, '+' + v, '#ffd166', 0.7, true); for (let i = 0; i < 3; i++) this.spark(c.x, c.y, '#ffd166'); }
   /* ---------- effects ---------- */
   smoke(x, y, alpha, size) { if (this.particles.n > 500) return; const p = this.particles.get(); p.type = 'smoke'; p.x = x; p.y = y; p.vx = rand(-12, 12); p.vy = rand(-20, -6); p.life = p.maxLife = rand(0.5, 0.9); p.size = 5 * size; p.alpha = alpha * 0.5; p.color = null; p.grow = 14; }
