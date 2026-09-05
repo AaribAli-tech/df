@@ -141,10 +141,10 @@ class Player extends Tank {
 
 /* ---------- Pet companion tank ---------- */
 class Pet extends Tank {
-  constructor(game, x, y) {
-    const S = petStats(game.save); super(game, S.tank.id, x, y, S.scale); this.team = 'player'; this.isPet = true; this.tint = 'rgba(80,200,255,0.35)'; this.ringColor = 'rgba(120,210,255,0.9)';
+  constructor(game, x, y, tankId, slot = 0) {
+    const S = petStats(game.save, tankId); super(game, S.tank.id, x, y, S.scale); this.slot = slot; this.name = S.tank.name; this.team = 'player'; this.isPet = true; this.tint = 'rgba(80,200,255,0.35)'; this.ringColor = 'rgba(120,210,255,0.9)';
     this.maxHp = S.hp; this.hp = this.maxHp; this.speed = S.speed; this.dmg = S.dmg; this.fireInt = S.fireInt; this.shots = S.shots; this.bounces = S.bounces; this.armor = S.armor; this.bSpeed = S.bSpeed; this.bossDmg = S.bossDmg;
-    this.radius = S.radius; this.target = null; this.retargetT = 0; this.orbitAng = Math.PI; this.orbitT = 0; this.respawnT = 0; this.turretSpd = 6;
+    this.radius = S.radius; this.target = null; this.retargetT = 0; this.orbitAng = Math.PI + slot * (TAU / MAX_PETS); this.orbitT = 0; this.respawnT = 0; this.turretSpd = 6; this.formOff = slot * (TAU / 5);
   }
   update(dt) {
     const P = this.game.player; if (this.dead) { this.respawnT -= dt; if (this.respawnT <= 0 && !P.dead) this.respawn(); return; }
@@ -152,8 +152,9 @@ class Pet extends Tank {
     this.retargetT -= dt; if (this.retargetT <= 0 || !this.target || this.target.dead) { this.retargetT = 0.5; this.target = this.pickTarget(); }
     // desired position: orbit near player, biased toward target side
     this.orbitT -= dt; if (this.orbitT <= 0) { this.orbitT = 2 + Math.random() * 2; this.orbitAng += (Math.random() - 0.5) * 2.0; }
-    let tx = P.x + Math.cos(this.orbitAng) * 80, ty = P.y + Math.sin(this.orbitAng) * 80;
-    if (this.target) { const a = Math.atan2(this.target.y - P.y, this.target.x - P.x); tx = P.x + Math.cos(a + 0.9) * 75; ty = P.y + Math.sin(a + 0.9) * 75; }
+    const n = this.game.pets.length; const ring = 80 + Math.min(40, n * 8);
+    let tx = P.x + Math.cos(this.orbitAng) * ring, ty = P.y + Math.sin(this.orbitAng) * ring;
+    if (this.target) { const a = Math.atan2(this.target.y - P.y, this.target.x - P.x); const side = (this.slot % 2 ? -1 : 1) * (0.7 + Math.floor(this.slot / 2) * 0.5); tx = P.x + Math.cos(a + side) * ring; ty = P.y + Math.sin(a + side) * ring; }
     const dP = dist(this.x, this.y, P.x, P.y); if (dP > 320) { tx = P.x; ty = P.y; }
     const d = dist(this.x, this.y, tx, ty);
     if (d > 18) {
@@ -173,11 +174,11 @@ class Pet extends Tank {
     } else this.turretAng = rotToward(this.turretAng, this.bodyAng, 4 * dt);
     this.separateFromTanks(dt); this.updateCommon(dt);
   }
-  friendlyInLine(t) { const P = this.game.player; const d = dist(this.x, this.y, t.x, t.y); const a = Math.atan2(t.y - this.y, t.x - this.x); const dp = dist(this.x, this.y, P.x, P.y); if (dp > d) return false; const ap = Math.atan2(P.y - this.y, P.x - this.x); return Math.abs(angDiff(a, ap)) < Math.atan2(P.radius + 6, dp); }
-  pickTarget() { let best = null, bd = 1e9; for (const e of this.game.enemies) { if (e.dead) continue; const d = dist(this.x, this.y, e.x, e.y) + (this.game.map.lineOfSight(this.x, this.y, e.x, e.y) ? 0 : 400); if (d < bd) { bd = d; best = e; } } return best; }
+  friendlyInLine(t) { const d = dist(this.x, this.y, t.x, t.y); const a = Math.atan2(t.y - this.y, t.x - this.x); const friends = [this.game.player, ...this.game.pets]; for (const F of friends) { if (F === this || F.dead) continue; const dp = dist(this.x, this.y, F.x, F.y); if (dp > d) continue; const ap = Math.atan2(F.y - this.y, F.x - this.x); if (Math.abs(angDiff(a, ap)) < Math.atan2(F.radius + 6, dp)) return true; } return false; }
+  pickTarget() { let best = null, bd = 1e9; for (const e of this.game.enemies) { if (e.dead) continue; let d = dist(this.x, this.y, e.x, e.y) + (this.game.map.lineOfSight(this.x, this.y, e.x, e.y) ? 0 : 400); for (const o of this.game.pets) if (o !== this && !o.dead && o.target === e) d += 150; if (e.isBoss) d -= 200; if (d < bd) { bd = d; best = e; } } return best; }
   takeDamage(a, from) { if (this.dead) return; a = Math.max(1, Math.round(a * (1 - (this.armor || 0)))); super.takeDamage(a, from); this.game.floatText(this.x, this.y - 22, '-' + a, '#7fd4ff', 0.8); }
-  die() { this.dead = true; this.respawnT = 12; this.game.explode(this.x, this.y, 0.9); this.game.floatText(this.x, this.y - 30, 'COMPANION DOWN', '#7fd4ff'); }
-  respawn() { const P = this.game.player; this.dead = false; this.hp = this.maxHp; this.x = P.x - Math.cos(P.bodyAng) * 60; this.y = P.y - Math.sin(P.bodyAng) * 60; this.game.floatText(this.x, this.y - 30, 'COMPANION BACK', '#7fd4ff'); this.game.smoke(this.x, this.y, 1, 1.2); }
+  die() { this.dead = true; this.respawnT = 12; this.game.explode(this.x, this.y, 0.9); this.game.floatText(this.x, this.y - 30, this.name + ' DOWN', '#7fd4ff'); }
+  respawn() { const P = this.game.player; this.dead = false; this.hp = this.maxHp; const a = P.bodyAng + Math.PI + (this.slot - 2) * 0.5; this.x = P.x + Math.cos(a) * 70; this.y = P.y + Math.sin(a) * 70; this.game.floatText(this.x, this.y - 30, this.name + ' BACK', '#7fd4ff'); this.game.smoke(this.x, this.y, 1, 1.2); }
 }
 
 /* ---------- Enemy ---------- */

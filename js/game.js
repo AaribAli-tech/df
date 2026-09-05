@@ -15,7 +15,7 @@ class Game {
     this.levelIdx = idx; this.level = getLevel(idx); this.scale = levelScale(idx); this.map = new GameMap(this.level.map); this.map.buildWallMap();
     this.props = this.map.props.map(p => Object.assign({ dead: false, flash: 0 }, p)); this.map.updatePropGrid(this.props);
     this.enemies = []; this.bullets.clear(); this.particles.clear(); this.coins.clear(); this.texts.clear(); this.fx.clear(); this.tracks = []; this.trackHead = 0; this.rings = [];
-    const ps = this.map.playerSpawn; this.player = new Player(this, ps.x, ps.y); this.pet = this.save.petUnlocked ? new Pet(this, ps.x - 60, ps.y + 40) : null;
+    const ps = this.map.playerSpawn; this.player = new Player(this, ps.x, ps.y); this.pets = squadList(this.save).map((id, i) => { const a = Math.PI / 2 + (i - 2) * 0.55; return new Pet(this, ps.x + Math.cos(a) * 75, ps.y + Math.sin(a) * 75, id, i); }); this.pet = this.pets[0] || null;
     this.boss = null; this.waveIdx = 0; this.waveT = 0; this.pendingSpawns = []; this.spawnT = 0; this.killed = 0; this.coinsEarned = 0; this.elapsed = 0; this.state = 'play'; this.endT = 0; this.totalEnemies = this.level.waves.reduce((s, w) => s + Object.values(w.e).reduce((a, b) => a + b, 0), 0);
     this.cam.x = ps.x; this.cam.y = ps.y; this.cam.zoom = this.computeZoom(); this.flowT = 0; this.map.computeFlow(ps.x, ps.y);
     this.spawnUsage = new Map();
@@ -42,9 +42,9 @@ class Game {
     for (let i = 0; i < 12 && e.collides(e.x, e.y, e.radius); i++) { e.x = s.x + rand(-50, 50); e.y = s.y + rand(-50, 50); }
     this.enemies.push(e); this.ring(e.x, e.y, 'rgba(255,80,60,0.8)', 40); this.smoke(e.x, e.y, 1, 1.5); return e;
   }
-  allTanks() { const a = [this.player]; if (this.pet && !this.pet.dead) a.push(this.pet); for (const e of this.enemies) if (!e.dead) a.push(e); return a; }
+  allTanks() { const a = [this.player]; for (const p of this.pets) if (!p.dead) a.push(p); for (const e of this.enemies) if (!e.dead) a.push(e); return a; }
   target(enemy) { // enemies target the player mostly; sometimes the pet if closer
-    const P = this.player; if (this.pet && !this.pet.dead && Math.random() < 0.0) return this.pet; if (this.pet && !this.pet.dead && enemy.petBias && dist(enemy.x, enemy.y, this.pet.x, this.pet.y) < dist(enemy.x, enemy.y, P.x, P.y) * 0.6) return this.pet; return P.dead ? null : P;
+    const P = this.player; if (P.dead) return null; if (!enemy.aggroT || enemy.aggroT < this.time) { enemy.aggroT = this.time + 2; enemy.aggro = P; const dP = dist(enemy.x, enemy.y, P.x, P.y); for (const pet of this.pets) { if (pet.dead) continue; if (dist(enemy.x, enemy.y, pet.x, pet.y) < dP * 0.45 && Math.random() < 0.35) { enemy.aggro = pet; break; } } } return enemy.aggro && !enemy.aggro.dead ? enemy.aggro : P;
   }
   leadAngle(shooter, tgt, bSpeed, factor = 1) {
     const dx = tgt.x - shooter.x, dy = tgt.y - shooter.y; const tvx = (tgt.x - (tgt.lastX ?? tgt.x)) * 60, tvy = (tgt.y - (tgt.lastY ?? tgt.y)) * 60; const d = Math.hypot(dx, dy); const t = d / bSpeed * factor;
@@ -65,7 +65,7 @@ class Game {
     }
     // entities
     if (!this.player.dead) this.player.update(dt);
-    if (this.pet) this.pet.update(dt);
+    for (const p of this.pets) p.update(dt);
     for (const e of this.enemies) if (!e.dead) e.update(dt);
     this.updateBullets(dt); this.updateParticles(dt); this.updateCoins(dt); this.updateTexts(dt); this.updateFX(dt);
     for (const p of this.props) if (p.flash > 0) p.flash -= dt;
@@ -127,7 +127,7 @@ class Game {
     if (Math.abs(tx) > Math.abs(ty)) return { x: b.vx > 0 ? -1 : 1, y: 0 }; return { x: 0, y: b.vy > 0 ? -1 : 1 };
   }
   bulletVsTanks(b) {
-    const targets = b.team === 'player' ? this.enemies : (this.pet && !this.pet.dead ? [this.player, this.pet] : [this.player]);
+    const targets = b.team === 'player' ? this.enemies : this.friendlies || (this.friendlies = []); if (b.team !== 'player') { targets.length = 0; targets.push(this.player); for (const p of this.pets) if (!p.dead) targets.push(p); }
     for (const t of targets) {
       if (t.dead) continue; if (t === b.owner && b.age < 0.3) continue; if (t.isBoss && t.introT > 0) continue;
       const rr = t.radius + b.r; if (Math.abs(b.x - t.x) > rr || Math.abs(b.y - t.y) > rr) continue; if ((b.x - t.x) ** 2 + (b.y - t.y) ** 2 > rr * rr) continue;
@@ -223,7 +223,7 @@ class Game {
     for (const e of this.enemies) if (!e.dead && e.drawExtra) e.drawExtra(g);
     // tanks
     for (const e of this.enemies) if (!e.dead && vis(e.x, e.y, 120)) e.draw(g);
-    if (this.pet && !this.pet.dead) this.pet.draw(g);
+    for (const p of this.pets) if (!p.dead) p.draw(g);
     if (!this.player.dead) this.player.draw(g);
     // bullets
     for (let i = 0; i < this.bullets.n; i++) { const b = this.bullets.items[i]; if (!vis(b.x, b.y)) continue;
@@ -240,7 +240,7 @@ class Game {
     for (let i = 0; i < this.fx.n; i++) { const f = this.fx.items[i]; const fr = f.frames[Math.min(f.frames.length - 1, Math.floor(f.t * f.fps))]; if (!fr || !vis(f.x, f.y, 150)) continue; g.save(); g.translate(f.x, f.y); g.rotate(f.rot); g.scale(f.scale, f.scale); if (f.add) g.globalCompositeOperation = 'lighter'; g.drawImage(fr.img, fr.ox, fr.oy); g.restore(); }
     // hp bars
     for (const e of this.enemies) if (!e.dead && !e.isBoss && vis(e.x, e.y)) e.drawHpBar(g);
-    if (this.pet && !this.pet.dead) this.pet.drawHpBar(g, 36);
+    for (const p of this.pets) if (!p.dead) p.drawHpBar(g, 36);
     // overlays (trees) above everything
     for (const o of this.map.overlays) { if (!vis(o.x, o.y, 100)) continue; const im = Assets.props.tree; g.save(); g.translate(o.x, o.y); g.rotate(o.rot + Math.sin(this.time * 1.3 + o.x) * 0.02); g.scale(o.s, o.s); g.globalAlpha = dist(o.x, o.y, this.player.x, this.player.y) < 70 ? 0.45 : 0.95; g.drawImage(im, -im.width / 2, -im.height / 2); g.restore(); }
     g.globalAlpha = 1;

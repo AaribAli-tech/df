@@ -98,6 +98,8 @@ const PET_UPGRADES = [
   { id: 'speed',    name: 'PET SPEED',     icon: '➤', desc: '+8% companion speed.', max: 4, base: 110, mult: 1.5, fmt: (l) => '+' + (8 * l) + '% SPD' },
 ];
 const PET_UNLOCK_COST = 1000;
+const MAX_PETS = 5;
+const PET_SLOT_COSTS = [0, 800, 1500, 2500, 4000]; // cost to unlock slot index i (slot 0 comes with the companion unlock)
 function upgradeMax(u) { return u.labels ? u.labels.length - 1 : u.max; }
 function upgradeCost(u, lvl) { if (u.labels) return u.costs[lvl]; return Math.round(u.base * Math.pow(u.mult, lvl) / 10) * 10; }
 function upgradeLabel(u, lvl) { return u.labels ? u.labels[lvl] : u.fmt(lvl); }
@@ -154,8 +156,10 @@ function playerStats(save) {
   return { tank: tk, hp: tk.hp + 20 * st.health, speed: Math.round(tk.speed * (1 + 0.07 * st.speed)), dmg: Math.round(tk.dmg * (1 + 0.15 * st.damage) * 10) / 10, fireInt: tk.fireInt * (1 - 0.08 * st.fireRate),
     shots: Math.min(5, st.shot + 1 + (pk.shots || 0)), bounces: st.bounce + (pk.bounce || 0), armor: Math.min(0.6, st.armor * 0.06 + (pk.armor || 0)), bSpeed: PLAYER_BASE.bSpeed * (pk.bSpeed || 1), bossDmg: pk.bossDmg || 1, magnet: pk.magnet || 1, coin: pk.coin || 1, scale: tk.scale, radius: tankRadius(tk, tk.scale) };
 }
-function petStats(save) {
-  const tk = TANK_BY_ID[save.petTank] || TANK_BY_ID.stuart; const st = save.pet; const pk = tk.perk || {}; const sc = tk.scale * 0.75;
+function petStats(save, tankId) {
+  const tk = TANK_BY_ID[tankId || save.petTank] || TANK_BY_ID.stuart; const st = save.pet; const pk = tk.perk || {}; const sc = tk.scale * 0.75;
   return { tank: tk, hp: Math.round(tk.hp * 0.6 + 25 * st.health), speed: Math.round((tk.speed + 15) * (1 + 0.08 * st.speed)), dmg: Math.round(tk.dmg * 0.6 * (1 + 0.2 * st.damage) * 10) / 10, fireInt: tk.fireInt * 1.6 * (1 - 0.1 * st.fireRate),
     shots: Math.min(5, st.shot + 1 + (pk.shots || 0)), bounces: pk.bounce || 0, armor: pk.armor || 0, bSpeed: PET_BASE.bSpeed * (pk.bSpeed || 1), bossDmg: pk.bossDmg || 1, scale: sc, radius: tankRadius(tk, sc) };
 }
+/* squad helpers: save.petSlots = array of tank ids (one per unlocked slot) */
+function squadList(save) { if (!save.petUnlocked) return []; return (save.petSlots || [save.petTank || 'stuart']).slice(0, MAX_PETS); }

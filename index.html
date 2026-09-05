@@ -19,7 +19,7 @@
   <div class="hud-tl">
     <div class="label">❤ HULL</div>
     <div class="bar hp"><div id="hpFill" class="fill g"></div><span id="hpText">100 / 100</span></div>
-    <div id="petHp" class="bar pet"><span class="pl">🛡 PET</span><div id="petFill" class="fill"></div></div>
+    <div class="squadRow"><span class="label sq">SQUAD</span><div id="squadHud" class="squadHud"></div></div>
   </div>
   <div class="hud-tc">
     <div id="hudLevel">LEVEL 1</div>
@@ -57,13 +57,14 @@
     <button id="btnPet" class="mbtn">🛡 PET TANK</button>
     <button id="btnSettings" class="mbtn">♪ SETTINGS</button>
   </div>
-  <div class="menu-foot"><span class="gold">🪙 <b id="menuCoins">0</b></span><span id="menuTank">TANK: T-34</span><span id="menuBest">BEST LEVEL: 0</span></div>
+  <div class="menu-foot"><span class="gold">🪙 <b id="menuCoins">0</b></span><span id="menuTank">TANK: T-34</span><span id="menuSquad">SQUAD: —</span><span id="menuBest">BEST LEVEL: 0</span></div>
+  <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
   <div class="controls-hint">WASD / ARROWS move • MOUSE aim • CLICK / SPACE fire • ESC pause</div>
 </div>
 
 <!-- Level Select -->
 <div id="scr-levels" class="screen panel">
-  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2>SELECT BATTLEFIELD</h2><span class="gold">🪙 <b class="coinBal">0</b></span></div>
+  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2><span class="hi">⚑</span> SELECT BATTLEFIELD</h2><span class="gold pill">🪙 <b class="coinBal">0</b></span></div>
   <div id="levelList" class="levels"></div>
   <div id="levelInfo" class="info"></div>
   <div class="center"><button id="btnStart" class="mbtn primary">DEPLOY ▶</button></div>
@@ -71,37 +72,40 @@
 
 <!-- Upgrade Shop -->
 <div id="scr-shop" class="screen panel">
-  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2>UPGRADE WORKSHOP</h2><span class="gold">🪙 <b class="coinBal">0</b></span></div>
+  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2><span class="hi">⚙</span> UPGRADE WORKSHOP</h2><span class="gold pill">🪙 <b class="coinBal">0</b></span></div>
   <div id="shopSummary" class="summary"></div>
   <div id="shopCards" class="cards"></div>
 </div>
 
 <!-- Garage (tank shop) -->
 <div id="scr-garage" class="screen panel">
-  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2>GARAGE — BUY & EQUIP TANKS</h2><span class="gold">🪙 <b class="coinBal">0</b></span></div>
+  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2><span class="hi">🚜</span> GARAGE</h2><span class="gold pill">🪙 <b class="coinBal">0</b></span></div>
   <div id="garageSummary" class="summary"></div>
   <div id="garageCards" class="cards tanks"></div>
 </div>
 
 <!-- Pet Shop -->
 <div id="scr-pet" class="screen panel">
-  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2>COMPANION TANK</h2><span class="gold">🪙 <b class="coinBal">0</b></span></div>
+  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2><span class="hi">🛡</span> COMPANION SQUAD</h2><span class="gold pill">🪙 <b class="coinBal">0</b></span></div>
   <div id="petLock" class="petlock">
     <div class="petart" id="petArt"></div>
-    <h3>COMPANION TANK</h3>
-    <p>A small combat tank that follows you, picks its own targets and fights by your side. Respawns if destroyed.</p>
-    <div class="status">LOCKED</div>
-    <button id="btnUnlockPet" class="buy big">🪙 1000 — UNLOCK</button>
+    <div class="petinfo">
+      <h3>COMPANION TANK</h3>
+      <p>A small combat tank that follows you, picks its own targets and fights by your side. Respawns if destroyed.</p>
+      <ul class="feats"><li>▸ Build a squad of up to <b>5</b> tanks</li><li>▸ One upgrade boosts <b>every</b> companion</li><li>▸ 13 chassis to collect, each with its own perk</li></ul>
+      <button id="btnUnlockPet" class="buy big">🪙 1000 — UNLOCK</button>
+    </div>
   </div>
-  <div id="petTabs" class="tabs"><button data-tab="upgrades">⚙ PET UPGRADES</button><button data-tab="chassis">🚜 PET CHASSIS</button></div>
+  <div id="petTabs" class="tabs"><button data-tab="squad">⚑ SQUAD</button><button data-tab="upgrades">⇶ PET UPGRADES</button><button data-tab="chassis">🚜 HANGAR</button></div>
   <div id="petSummary" class="summary hideable"></div>
+  <div id="petSquad" class="squad hideable"><div id="squadSlots" class="slots"></div><div id="squadNote" class="note"></div></div>
   <div id="petCards" class="cards"></div>
   <div id="petTankCards" class="cards tanks"></div>
 </div>
 
 <!-- Settings -->
 <div id="scr-settings" class="screen panel">
-  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2>SETTINGS</h2><span></span></div>
+  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2><span class="hi">♪</span> SETTINGS</h2><span></span></div>
   <div class="settings">
     <label><span>SFX VOLUME</span><input id="setSfx" type="range" min="0" max="1" step="0.05"></label>
     <label><span>MUSIC VOLUME</span><input id="setMusic" type="range" min="0" max="1" step="0.05"></label>
