@@ -48,12 +48,12 @@ const SHOT_SPREADS = [[0], [-0.07, 0.07], [-0.13, 0, 0.13], [-0.19, -0.065, 0.06
 const ENEMY_TINT = 'rgba(255,60,40,0.30)';
 
 const ENEMY_DEFS = {
-  basic:      { name: 'Grunt',    tank: 'panzer4',  scale: 1.9,  hp: 60,  speed: 125, dmg: 12, fireInt: 1.7,  bSpeed: 430, err: 0.12, range: 340, coins: 15, turretSpd: 3.0, radius: 22 },
-  aggressive: { name: 'Raider',   tank: 't26',      scale: 1.85, hp: 45,  speed: 200, dmg: 8,  fireInt: 0.85, bSpeed: 470, err: 0.17, range: 190, coins: 18, turretSpd: 5.0, radius: 19 },
-  defensive:  { name: 'Bunker',   tank: 'matilda',  scale: 1.95, hp: 85,  speed: 120, dmg: 14, fireInt: 1.5,  bSpeed: 450, err: 0.08, range: 430, coins: 20, turretSpd: 3.2, radius: 22 },
-  sniper:     { name: 'Marksman', tank: 'lee',      scale: 1.9,  hp: 55,  speed: 105, dmg: 30, fireInt: 3.4,  bSpeed: 780, err: 0.03, range: 700, coins: 24, turretSpd: 1.6, radius: 22, telegraph: 0.8 },
-  heavy:      { name: 'Bruiser',  tank: 'kv1',      scale: 2.1,  hp: 170, speed: 85,  dmg: 18, fireInt: 2.0,  bSpeed: 410, err: 0.10, range: 320, coins: 35, turretSpd: 2.2, radius: 27, shots: 2, spread: 0.09, bounce: 1 },
-  hunter:     { name: 'Bouncer',  tank: 'crusader', scale: 1.85, hp: 70,  speed: 165, dmg: 12, fireInt: 1.25, bSpeed: 490, err: 0.10, range: 400, coins: 22, turretSpd: 3.5, radius: 21, bounce: 2 },
+  basic:      { name: 'Grunt',    tank: 'panzer4',  scale: 1.9,  hp: 60,  speed: 125, dmg: 10, fireInt: 2.0,  bSpeed: 400, err: 0.16, range: 340, coins: 15, turretSpd: 3.0, radius: 22 },
+  aggressive: { name: 'Raider',   tank: 't26',      scale: 1.85, hp: 45,  speed: 200, dmg: 6,  fireInt: 1.0,  bSpeed: 440, err: 0.22, range: 190, coins: 18, turretSpd: 5.0, radius: 19 },
+  defensive:  { name: 'Bunker',   tank: 'matilda',  scale: 1.95, hp: 85,  speed: 120, dmg: 12, fireInt: 1.8,  bSpeed: 430, err: 0.10, range: 430, coins: 20, turretSpd: 3.2, radius: 22 },
+  sniper:     { name: 'Marksman', tank: 'lee',      scale: 1.9,  hp: 55,  speed: 105, dmg: 26, fireInt: 3.8,  bSpeed: 760, err: 0.03, range: 700, coins: 24, turretSpd: 1.6, radius: 22, telegraph: 0.8 },
+  heavy:      { name: 'Bruiser',  tank: 'kv1',      scale: 2.1,  hp: 170, speed: 85,  dmg: 15, fireInt: 2.3,  bSpeed: 390, err: 0.12, range: 320, coins: 35, turretSpd: 2.2, radius: 27, shots: 2, spread: 0.09, bounce: 1 },
+  hunter:     { name: 'Bouncer',  tank: 'crusader', scale: 1.85, hp: 70,  speed: 165, dmg: 10, fireInt: 1.5,  bSpeed: 460, err: 0.12, range: 400, coins: 22, turretSpd: 3.5, radius: 21, bounce: 2 },
 };
 const BOSS_DEFS = {
   ricochet:   { name: 'RICOCHET',   tank: 'tiger', scale: 3.0, hp: 1500, speed: 115, dmg: 16, bSpeed: 380, coins: 450, tint: 'rgba(160,50,255,0.5)', radius: 58, turretSpd: 2.4 },
@@ -125,5 +125,5 @@ function getLevel(i) {
 function toRoman(n) { const r = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']; return r[n] || String(n); }
 /* difficulty scaling by level index (0-based) */
 function levelScale(i) {
-  return { hp: 1 + 0.07 * i, dmg: 1 + 0.05 * i, speed: Math.min(1.35, 1 + 0.02 * i), coins: 1 + 0.1 * i, err: Math.max(0.4, 1 - 0.04 * i), fire: Math.max(0.6, 1 - 0.02 * i) };
+  return { hp: 1 + 0.08 * i, dmg: 1 + 0.04 * i, speed: Math.min(1.3, 1 + 0.015 * i), coins: 1 + 0.1 * i, err: Math.max(0.45, 1 - 0.035 * i), fire: Math.max(0.65, 1 - 0.02 * i) };
 }

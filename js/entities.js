@@ -129,11 +129,12 @@ class Player extends Tank {
       const kb = 40 * dt; this.moveBy(-Math.cos(this.turretAng) * kb, -Math.sin(this.turretAng) * kb);
     }
     if (this.invuln > 0) this.invuln -= dt;
+    this.regenT += dt; if (this.regenT > 6 && this.hp < this.maxHp * 0.4) this.hp = Math.min(this.maxHp * 0.4, this.hp + 3 * dt); // slow regen up to 40% when not hit for 6s
     this.separateFromTanks(dt); this.updateCommon(dt);
   }
   takeDamage(amount, from) {
     if (this.dead || this.invuln > 0) return; amount = Math.max(1, Math.round(amount * (1 - this.armor)));
-    super.takeDamage(amount, from); this.invuln = 0.08; Audio_.play('playerHit'); this.game.shake(6); this.game.hitFlash = 0.25; this.game.floatText(this.x, this.y - 30, '-' + amount, '#ff5a5a');
+    super.takeDamage(amount, from); this.invuln = 0.3; this.regenT = 0; Audio_.play('playerHit'); this.game.shake(6); this.game.hitFlash = 0.25; this.game.floatText(this.x, this.y - 30, '-' + amount, '#ff5a5a');
     if (this.hp > 0 && this.hp < this.maxHp * 0.25) Audio_.play('lowHp');
   }
   die() { this.dead = true; this.game.onPlayerDeath(); }
@@ -194,7 +195,7 @@ class Enemy extends Tank {
     const P = this.game.target(this); if (!P) return; const map = this.game.map;
     this.think -= dt; this.stateT += dt; const d = dist(this.x, this.y, P.x, P.y);
     if (this.think <= 0) { this.think = 0.2 + Math.random() * 0.15; this.seesPlayer = map.lineOfSight(this.x, this.y, P.x, P.y); this.plan(P, d); }
-    if (this.seesPlayer) this.sight = Math.min(1, this.sight + dt * 2); else this.sight = Math.max(0, this.sight - dt);
+    if (this.seesPlayer) { this.sight = Math.min(1, this.sight + dt * 2); this.noSightT = 0; } else { this.sight = Math.max(0, this.sight - dt); this.noSightT = (this.noSightT || 0) + dt; }
     // movement
     let mx = 0, my = 0;
     if (this.dir.x || this.dir.y) { mx = this.dir.x; my = this.dir.y; }
@@ -231,6 +232,7 @@ class Enemy extends Tank {
     const toward = () => flow || this.dirTo(P.x, P.y); const away = () => { const f = this.dirTo(P.x, P.y); return { x: -f.x, y: -f.y }; };
     const strafe = () => { this.strafeT -= 0.25; if (this.strafeT <= 0) { this.strafeT = 1.2 + Math.random() * 1.5; if (Math.random() < 0.6) this.strafeDir *= -1; } const a = Math.atan2(P.y - this.y, P.x - this.x) + Math.PI / 2 * this.strafeDir; return { x: Math.cos(a), y: Math.sin(a) }; };
     const stop = () => ({ x: 0, y: 0 });
+    if ((this.noSightT || 0) > 5 && t !== 'defensive') { this.dir = toward(); if (this.noSightT > 9) this.noSightT = 0; return; }
     switch (t) {
       case 'basic': {
         const want = 260; if (!this.seesPlayer || d > want + 60) this.dir = toward(); else if (d < want - 90) this.dir = away(); else this.dir = Math.random() < 0.5 ? strafe() : stop(); break;
@@ -243,7 +245,7 @@ class Enemy extends Tank {
         if (this.state === 'approach' || (this.state === 'cover' && !this.dest)) { if (!this.dest || this.stateT > 6) { this.dest = this.findCover(P); this.stateT = 0; } }
         if (this.state === 'approach' || this.state === 'cover') {
           if (this.dest) { const dd = dist(this.x, this.y, this.dest.x, this.dest.y); if (dd < 20) { this.state = 'hide'; this.stateT = 0; this.dir = stop(); } else { const f = this.dirTo(this.dest.x, this.dest.y); this.dir = f; } }
-          else { if (d > 300) this.dir = toward(); else if (d < 160) this.dir = away(); else this.dir = strafe(); }
+          else { if (d > 300 || !this.seesPlayer) this.dir = toward(); else if (d < 160) this.dir = away(); else this.dir = strafe(); }
         } else if (this.state === 'hide') {
           this.dir = stop(); if (this.stateT > 1.2 + Math.random() * 0.8) { this.state = 'peek'; this.stateT = 0; this.peekDir = this.dirTo(P.x, P.y); }
         } else if (this.state === 'peek') {
@@ -258,7 +260,7 @@ class Enemy extends Tank {
         const want = 520; if (!this.seesPlayer) this.dir = toward(); else if (d < want - 120) this.dir = away(); else if (d > want + 150) this.dir = toward(); else this.dir = this.telegraph > 0 ? stop() : (Math.random() < 0.3 ? strafe() : stop());
         break;
       }
-      case 'heavy': { const want = 230; if (!this.seesPlayer || d > want + 80) this.dir = toward(); else if (d < want - 80) this.dir = away(); else this.dir = stop(); break; }
+      case 'heavy': { const want = 230; if (!this.seesPlayer || d > want + 80) this.dir = toward(); else if (d < want - 80) this.dir = away(); else this.dir = Math.random() < 0.3 ? strafe() : stop(); break; }
       case 'hunter': {
         // bouncer: prefers positions where a bounce shot is possible; otherwise mid-range strafe
         const want = 320; if (!this.seesPlayer && d > 200) { this.dir = Math.random() < 0.6 ? toward() : strafe(); } else if (d > want + 60) this.dir = toward(); else if (d < want - 100) this.dir = away(); else this.dir = strafe();

@@ -137,7 +137,7 @@ const App = {
 class MenuBackground {
   constructor(canvas) {
     this.c = canvas; this.g = canvas.getContext('2d'); this.t = 0; this.parts = []; this.map = new GameMap(1); this.tanks = []; this.shells = []; this.fxList = [];
-    const kinds = ['t34', 'tiger', 'sherman', 'panther', 'crusader']; for (let i = 0; i < 5; i++) this.tanks.push({ kind: kinds[i], x: 300 + i * 320, y: 300 + (i % 2) * 380, a: Math.random() * TAU, ta: Math.random() * TAU, sp: 40 + Math.random() * 30, turn: (Math.random() - 0.5) * 0.6, fireT: Math.random() * 3 });
+    const kinds = ['t34', 'tiger', 'sherman', 'panther', 'crusader']; for (let i = 0; i < 5; i++) this.tanks.push({ kind: kinds[i], x: 300 + i * 320, y: 300 + (i % 2) * 380, sc: 2.2, a: Math.random() * TAU, ta: Math.random() * TAU, sp: 40 + Math.random() * 30, turn: (Math.random() - 0.5) * 0.6, fireT: Math.random() * 3 });
     for (let i = 0; i < 40; i++) this.parts.push({ x: Math.random() * 2000, y: Math.random() * 1200, vx: 10 + Math.random() * 30, vy: -5 - Math.random() * 15, s: 1 + Math.random() * 3, a: Math.random() });
   }
   update(dt) {
@@ -152,7 +152,7 @@ class MenuBackground {
     g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#111'; g.fillRect(0, 0, W, H);
     g.save(); g.translate(W / 2, H / 2); g.scale(z, z); g.translate(-cx, -cy);
     g.drawImage(this.map.baked, 0, 0);
-    for (const t of this.tanks) { const S = Assets.tanks[t.kind]; const d = TANK_DEFS[t.kind]; const sc = 1.6; g.save(); g.translate(t.x, t.y); g.rotate(t.a + Math.PI / 2); g.drawImage(S.hull, -d.hx * sc, -d.hy * sc, 100 * sc, 100 * sc); g.restore(); g.save(); g.translate(t.x, t.y); g.rotate(t.ta + Math.PI / 2); g.drawImage(S.turret, -d.tx * sc, -d.ty * sc, 100 * sc, 100 * sc); g.restore(); }
+    for (const t of this.tanks) { const S = Assets.tanks[t.kind]; const d = TANK_DEFS[t.kind]; const sc = 2.2; g.save(); g.translate(t.x, t.y); g.rotate(t.a + Math.PI / 2); g.drawImage(S.hull, -d.hx * sc, -d.hy * sc, 100 * sc, 100 * sc); g.restore(); g.save(); g.translate(t.x, t.y); g.rotate(t.ta + Math.PI / 2); g.drawImage(S.turret, -d.tx * sc, -d.ty * sc, 100 * sc, 100 * sc); g.restore(); }
     for (const s of this.shells) { g.fillStyle = '#ffd166'; g.beginPath(); g.arc(s.x, s.y, 5, 0, TAU); g.fill(); }
     for (const f of this.fxList) { const fr = Assets.fx[f.kind][Math.min(Assets.fx[f.kind].length - 1, Math.floor(f.t * 20))]; g.save(); g.translate(f.x, f.y); g.rotate(f.rot); g.scale(f.sc, f.sc); g.globalCompositeOperation = 'lighter'; g.drawImage(fr.img, fr.ox, fr.oy); g.restore(); }
     for (const p of this.parts) { g.globalAlpha = 0.5 * (p.dead !== undefined ? Math.min(1, p.dead) : 1); g.fillStyle = p.dead !== undefined ? '#f0a040' : '#ccc'; g.fillRect(p.x, p.y, p.s, p.s); } g.globalAlpha = 1;
