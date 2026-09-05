@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a1a22">
+<title>IRON RICOCHET — Tank Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-tl">
+    <div class="label">❤ HULL</div>
+    <div class="bar hp"><div id="hpFill" class="fill g"></div><span id="hpText">100 / 100</span></div>
+    <div id="petHp" class="bar pet"><span class="pl">🛡 PET</span><div id="petFill" class="fill"></div></div>
+  </div>
+  <div class="hud-tc">
+    <div id="hudLevel">LEVEL 1</div>
+    <div id="hudLevelName" class="sub">TRAINING GROUND</div>
+    <div id="hudEnemies" class="sub2"></div>
+  </div>
+  <div class="hud-tr">
+    <div class="coins">🪙 <span id="hudCoins">0</span></div>
+    <button id="btnPause" class="icon-btn" title="Pause (Esc)">II</button>
+  </div>
+  <div id="bossBar">
+    <div class="bn"><span id="bossName">RICOCHET</span><span id="bossPhase" class="ph">PHASE 1</span></div>
+    <div class="bar boss"><div id="bossFill" class="fill"></div></div>
+  </div>
+  <div id="tip"></div>
+</div>
+
+<!-- Touch controls -->
+<div id="touchLayer">
+  <div id="stickL" class="stick"><div class="knob"></div></div>
+  <div id="stickR" class="stick aim"><div class="knob"></div></div>
+  <div class="hint hl">MOVE</div><div class="hint hr">AIM + FIRE</div>
+</div>
+
+<!-- Loading -->
+<div id="loading"><div class="logo">IRON<span>RICOCHET</span></div><div class="loadbar"><div id="loadBar"></div></div><div class="small">LOADING BATTLEFIELD…</div></div>
+
+<!-- Main Menu -->
+<div id="scr-menu" class="screen menu">
+  <div class="logo big">IRON<span>RICOCHET</span><em>TANK ARENA</em></div>
+  <div class="menu-btns">
+    <button id="btnPlay" class="mbtn primary">▶ PLAY</button>
+    <button id="btnUpgrades" class="mbtn">⚙ UPGRADES</button>
+    <button id="btnPet" class="mbtn">🛡 PET TANK</button>
+    <button id="btnSettings" class="mbtn">♪ SETTINGS</button>
+  </div>
+  <div class="menu-foot"><span class="gold">🪙 <b id="menuCoins">0</b></span><span id="menuBest">BEST LEVEL: 0</span></div>
+  <div class="controls-hint">WASD / ARROWS move • MOUSE aim • CLICK / SPACE fire • ESC pause</div>
+</div>
+
+<!-- Level Select -->
+<div id="scr-levels" class="screen panel">
+  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2>SELECT BATTLEFIELD</h2><span class="gold">🪙 <b class="coinBal">0</b></span></div>
+  <div id="levelList" class="levels"></div>
+  <div id="levelInfo" class="info"></div>
+  <div class="center"><button id="btnStart" class="mbtn primary">DEPLOY ▶</button></div>
+</div>
+
+<!-- Upgrade Shop -->
+<div id="scr-shop" class="screen panel">
+  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2>UPGRADE WORKSHOP</h2><span class="gold">🪙 <b class="coinBal">0</b></span></div>
+  <div id="shopSummary" class="summary"></div>
+  <div id="shopCards" class="cards"></div>
+</div>
+
+<!-- Pet Shop -->
+<div id="scr-pet" class="screen panel">
+  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2>COMPANION TANK</h2><span class="gold">🪙 <b class="coinBal">0</b></span></div>
+  <div id="petLock" class="petlock">
+    <div class="petart"><div class="tankicon"></div></div>
+    <h3>COMPANION TANK</h3>
+    <p>A small combat tank that follows you, picks its own targets and fights by your side. Respawns if destroyed.</p>
+    <div class="status">LOCKED</div>
+    <button id="btnUnlockPet" class="buy big">🪙 1000 — UNLOCK</button>
+  </div>
+  <div id="petCards" class="cards"></div>
+</div>
+
+<!-- Settings -->
+<div id="scr-settings" class="screen panel">
+  <div class="ph-head"><button class="back" data-back>◀ BACK</button><h2>SETTINGS</h2><span></span></div>
+  <div class="settings">
+    <label><span>SFX VOLUME</span><input id="setSfx" type="range" min="0" max="1" step="0.05"></label>
+    <label><span>MUSIC VOLUME</span><input id="setMusic" type="range" min="0" max="1" step="0.05"></label>
+    <label class="chk"><span>SCREEN SHAKE</span><input id="setShake" type="checkbox"></label>
+    <label class="chk"><span>LOW EFFECTS (weak devices)</span><input id="setLowFx" type="checkbox"></label>
+    <div id="statsBox" class="stats"></div>
+    <button id="btnResetSave" class="mbtn danger">RESET PROGRESS</button>
+  </div>
+</div>
+
+<!-- Pause -->
+<div id="scr-pause" class="screen overlay">
+  <div class="box"><h2>PAUSED</h2>
+    <button id="btnResume" class="mbtn primary">RESUME</button>
+    <button id="btnPauseSettings" class="mbtn">SETTINGS</button>
+    <button id="btnPauseMenu" class="mbtn">MAIN MENU</button>
+  </div>
+</div>
+
+<!-- Level Complete -->
+<div id="scr-win" class="screen overlay">
+  <div class="box win"><h2 id="winTitle">LEVEL COMPLETE!</h2>
+    <div id="winStats" class="stats"></div>
+    <button id="btnNext" class="mbtn primary">NEXT LEVEL ▶</button>
+    <button id="btnWinUpgrades" class="mbtn">⚙ UPGRADES</button>
+    <button id="btnWinMenu" class="mbtn">MAIN MENU</button>
+  </div>
+</div>
+
+<!-- Game Over -->
+<div id="scr-lose" class="screen overlay">
+  <div class="box lose"><h2>GAME OVER</h2>
+    <div id="loseStats" class="stats"></div>
+    <button id="btnRetry" class="mbtn primary">↻ RETRY</button>
+    <button id="btnLoseUpgrades" class="mbtn">⚙ UPGRADES</button>
+    <button id="btnLoseMenu" class="mbtn">MAIN MENU</button>
+  </div>
+</div>
+
+<div id="rotate"><div>📱↻</div><p>PLEASE ROTATE YOUR PHONE</p><small>Iron Ricochet plays in landscape</small></div>
+
+<script src="js/config.js"></script>
+<script src="js/assets.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/input.js"></script>
+<script src="js/map.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
