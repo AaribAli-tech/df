@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Ironwood Range — a playable top-down tank battlefield map prototype."
+    />
+    <title>Ironwood Range | Battlefield Map</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="game-shell" aria-label="Ironwood Range battlefield map">
+      <canvas id="game" aria-label="Playable top-down tank battlefield"></canvas>
+
+      <section class="top-bar" aria-label="Battlefield status">
+        <div class="brand-lockup">
+          <span class="brand-kicker">FIELD MAP // 07</span>
+          <h1>IRONWOOD <strong>RANGE</strong></h1>
+        </div>
+        <div class="status-chip">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>TRAINING GROUND SECURE</span>
+        </div>
+      </section>
+
+      <aside class="control-card" aria-label="Controls">
+        <div class="control-card__heading">
+          <span class="control-card__icon" aria-hidden="true">⌁</span>
+          <span>DRIVER TEST</span>
+        </div>
+        <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> to drive</p>
+        <p class="control-card__subtle">Move the cursor to aim the turret. No weapons equipped.</p>
+      </aside>
+
+      <aside class="map-card" aria-label="Map legend">
+        <div class="map-card__topline">
+          <span>RANGE OVERVIEW</span>
+          <span id="sector-label">SECTOR W-3</span>
+        </div>
+        <canvas id="minimap" width="220" height="148" aria-label="Battlefield overview"></canvas>
+        <div class="map-card__legend">
+          <span><i class="legend-dot legend-dot--player"></i>YOUR TANK</span>
+          <span><i class="legend-dot legend-dot--spawn"></i>FUTURE SPAWN</span>
+        </div>
+      </aside>
+
+      <div id="toast" class="toast" role="status" aria-live="polite">
+        <span class="toast__badge">✓</span>
+        <span>Battlefield loaded — all hard cover is collision-ready.</span>
+      </div>
+
+      <div class="vignette" aria-hidden="true"></div>
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>
